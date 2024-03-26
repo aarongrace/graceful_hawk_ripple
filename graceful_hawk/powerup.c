@@ -86,7 +86,7 @@ static WORD load_value() {
 				wipeout();
 			}
 			ch = getc(f);
-		} while ((ch != '\n') && (ch != '+'));
+		} while ((ch != '\n') && (ch != '+') && (ch != 0x0D));
 		if (ch == '+') {
 			getcheck('R');
 			getcheck('\n');
@@ -211,7 +211,7 @@ void powerup(int argc, char **argv) {
 				exit(EXIT_FAILURE); /* error */
 			}
                 } else {
-			f = fopen(argv[i], "rt");
+			f = fopen(argv[i], "r");
 			if (f == NULL) {
 				fputs(argv[0], stderr);
 				fputs(" ", stderr);
