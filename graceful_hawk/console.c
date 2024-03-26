@@ -92,10 +92,9 @@ WORD dump_addr = 0;
 #define DATAMODE 0
 #define CODEMODE 1
 WORD dump_mode = CODEMODE;
-
 /* menu to display */
 #define NUM_MENUS 7
-int which_menu = 1;
+	int which_menu = 1;
 
 /*************************
  * Symbolic Dump Support *

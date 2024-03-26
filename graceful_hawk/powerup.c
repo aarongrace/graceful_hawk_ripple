@@ -54,6 +54,9 @@ static WORD rb = 0UL; /* the relocation base */
 static void getcheck(char c) {
 	/* get char from SMAL32 object file and verify that it's c */
 	int ch = getc(f);
+	if (ch == 0x0D){
+		ch = getc(f);
+	}
 	if (ch != c) {
 		fputs("** found '", stderr);
 		diagnose(c);
