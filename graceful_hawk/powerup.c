@@ -211,7 +211,7 @@ void powerup(int argc, char **argv) {
 				exit(EXIT_FAILURE); /* error */
 			}
                 } else {
-			f = fopen(argv[i], "r");
+			f = fopen(argv[i], "rt");
 			if (f == NULL) {
 				fputs(argv[0], stderr);
 				fputs(" ", stderr);
