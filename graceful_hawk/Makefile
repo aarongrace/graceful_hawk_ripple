@@ -67,7 +67,7 @@ libraries =  $(cpulib) $(conslib)
 .SUFFIXES: .o .c
 
 .c.o:
-	$(compiler) -c $(options) $*.c
+	cc -c $(options) $*.c
 
 ##########################################################################
 #
@@ -77,7 +77,7 @@ libraries =  $(cpulib) $(conslib)
 # it references itself!
 
 hawk: $(objects)
-	$(compiler) -o hawk $(objects) $(libraries)
+	cc -o hawk $(objects) $(libraries)
 
 $(objects): bus.h Makefile
 cpu.o: irfields.h float.h powerup.h console.h

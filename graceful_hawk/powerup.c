@@ -54,9 +54,6 @@ static WORD rb = 0UL; /* the relocation base */
 static void getcheck(char c) {
 	/* get char from SMAL32 object file and verify that it's c */
 	int ch = getc(f);
-	if (ch == 0x0D){
-		ch = getc(f);
-	}
 	if (ch != c) {
 		fputs("** found '", stderr);
 		diagnose(c);
@@ -86,7 +83,7 @@ static WORD load_value() {
 				wipeout();
 			}
 			ch = getc(f);
-		} while ((ch != '\n') && (ch != '+') && (ch != 0x0D));
+		} while ((ch != '\n') && (ch != '+'));
 		if (ch == '+') {
 			getcheck('R');
 			getcheck('\n');

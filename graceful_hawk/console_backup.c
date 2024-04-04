@@ -119,16 +119,10 @@ WORD dump_mode = CODEMODE;
 #define p_theme 41
 #define p_memory_line 50
 
+#define p_banner 60
 #define banner_temp 200
 #define banner_len 6
 static int banner_stage = 0;
-#define bs_disco 0
-#define bs_gradient 1
-#define bs_alternating 2
-static int curr_banner_style = bs_gradient;
-static char* curr_banner_char;
-static char* curr_banner_left;
-static char* curr_banner_right;
 
 #define t_default 1
 #define t_desert 2
@@ -144,7 +138,6 @@ static void create_pair_bg_b(int index, int r, int g, int b){
 	init_pair(index, index, COLOR_BLACK);
 }
 
-
 static int mod_color_val(int color, float m){
 	int new_color = (int) color * m;
 	//return the minimum of the new color and 1000
@@ -157,93 +150,43 @@ static int mod_color_val(int color, float m){
 static float mr = 1;
 static float mg = 1;
 static float mb = 1;
-static void set_banner_colors(){
+static void set_banner_colors(int stage){
 	for (int i =0; i<banner_len; i++){
-		int temp = banner_stage + i;
+		int temp = stage + i;
 		if (temp >= banner_len){
 			temp -= banner_len;
 		}
-		init_pair(banner_temp + i, banner_temp + temp, COLOR_BLACK);
-	}
-	banner_stage += 1;
-	if (banner_stage >= banner_len){
-		banner_stage = 0;
-	}
-}
-
-static void set_banner_style(int incre){
-	curr_banner_style += incre;
-	if (curr_banner_style > bs_alternating){
-		curr_banner_style = bs_disco;
-	}
-	switch (curr_banner_style){
-		case bs_disco:
-			curr_banner_char = "$";
-			curr_banner_left = "\\";
-			curr_banner_right = "/";
-			init_color(banner_temp + 0, mod_color_val(700, mr), mod_color_val(400, mg), mod_color_val(600, mb));
-			init_color(banner_temp + 1, mod_color_val(400, mr), mod_color_val(800, mg), mod_color_val(500, mb));
-			init_color(banner_temp + 2, mod_color_val(800, mr), mod_color_val(700, mg), mod_color_val(500, mb));
-			init_color(banner_temp + 3, mod_color_val(500, mr), mod_color_val(400, mg), mod_color_val(800, mb));
-			init_color(banner_temp + 4, mod_color_val(600, mr), mod_color_val(800, mg), mod_color_val(500, mb));
-			init_color(banner_temp + 5, mod_color_val(700, mr), mod_color_val(600, mg), mod_color_val(850, mb));
-			break;
-		case bs_gradient:
-			curr_banner_char = "~";
-			curr_banner_left = "/";
-			curr_banner_right = "\\";
-			init_color(banner_temp + 0, mod_color_val(1000, mr), mod_color_val(800, mg), mod_color_val(550, mb));
-			init_color(banner_temp + 1, mod_color_val(800, mr), mod_color_val(850, mg), mod_color_val(750, mb));
-			init_color(banner_temp + 2, mod_color_val(775, mr), mod_color_val(700, mg), mod_color_val(850, mb));
-			init_color(banner_temp + 3, mod_color_val(500, mr), mod_color_val(700, mg), mod_color_val(1000, mb));
-			init_color(banner_temp + 4, mod_color_val(750, mr), mod_color_val(800, mg), mod_color_val(900, mb));
-			init_color(banner_temp + 5, mod_color_val(800, mr), mod_color_val(600, mg), mod_color_val(950, mb));
-			break;
-		case bs_alternating:
-			curr_banner_char = "|";
-			curr_banner_left = "-";
-			curr_banner_right = "-";
-			init_color(banner_temp + 0, mod_color_val(600, mr), mod_color_val(700, mg), mod_color_val(900, mb));
-			init_color(banner_temp + 1, mod_color_val(600, mr), mod_color_val(700, mg), mod_color_val(900, mb));
-			init_color(banner_temp + 2, mod_color_val(600, mr), mod_color_val(700, mg), mod_color_val(900, mb));
-			init_color(banner_temp + 3, mod_color_val(900, mr), mod_color_val(600, mg), mod_color_val(700, mb));
-			init_color(banner_temp + 4, mod_color_val(900, mr), mod_color_val(600, mg), mod_color_val(700, mb));
-			init_color(banner_temp + 5, mod_color_val(900, mr), mod_color_val(600, mg), mod_color_val(700, mb));
-			break;
+		init_pair(banner_temp + 1, banner_temp + temp, COLOR_BLACK);
 	}
 }
 static void set_theme(){
-	init_color(COLOR_BLACK, 110, 110, 100);
 	switch (curr_theme){
 		case t_desert:
-			theme_str = "dune";
+			theme_str = "DUNE";
 			mr = 1.18;
 			mg = 1.05;
 			mb = 0.91;
 			break;
 		case t_ocean:
-			theme_str = "ocean";
+			theme_str = "OCEAN";
 			mr = 0.6;
 			mg = 1.05;
 			mb = 1.2;
 			break;
 		case t_crimson:
-			theme_str = "crimson";
+			theme_str = "CRIMSON";
 			mr = 1.35;
 			mg = 0.75;
 			mb = 0.7;
 			break;
 		case t_meadows:
-			theme_str = "meadows";
+			theme_str = "MEADOWS";
 			mr = 0.85;
 			mg = 1.2;
 			mb = 0.9;
 			break;
 		default:
-			theme_str = "black marsh";
-			mr = 1;
-			mg = 1;
-			mb = 1;
+			theme_str = "DEFAULT";
 			break;
 	}
 	create_pair_bg_b(p_title, mod_color_val(650, mr),mod_color_val(550, mg),mod_color_val(950, mb));
@@ -259,8 +202,13 @@ static void set_theme(){
 	create_pair_bg_b(p_theme, mod_color_val(800, mr),mod_color_val(900, mg),mod_color_val(1000, mb));
 	create_pair_bg_b(p_memory_line, mod_color_val(650, mr),mod_color_val(450, mg),mod_color_val(800, mb));
 
-	set_banner_style(0);
-	set_banner_colors();
+	init_color(banner_temp + 0, mod_color_val(700, mr),mod_color_val(400, mg),mod_color_val(600, mb));
+	init_color(banner_temp + 1, mod_color_val(400, mr),mod_color_val(800, mg),mod_color_val(500, mb));
+	init_color(banner_temp + 2, mod_color_val(800, mr),mod_color_val(700, mg),mod_color_val(500, mb));
+	init_color(banner_temp + 3, mod_color_val(500, mr),mod_color_val(400, mg),mod_color_val(800, mb));
+	init_color(banner_temp + 4, mod_color_val(600, mr),mod_color_val(800, mg),mod_color_val(500, mb));
+	init_color(banner_temp + 0, mod_color_val(700, mr),mod_color_val(600, mg),mod_color_val(850, mb));
+	set_banner_colors(banner_stage);
 }
 
 static void change_theme(int theme){
@@ -299,7 +247,7 @@ static void debug(WORD var){
  *******************/
 static int banner_at = 0;
 static void print_banner_char(char* c, int reps){
-	for (int i=0; i < reps; i++){
+	for (int i; i < reps; i++){
 		int temp = banner_at % banner_len;
 		printw_c(banner_temp + temp, c);
 		banner_at++;
@@ -312,24 +260,19 @@ static void title() {
 	printw_c(p_title,"The Graceful Hawk Emulator");
 	move(pcy - 1, pcx);
 
-	print_banner_char(curr_banner_left, 1);
-	print_banner_char(curr_banner_char, 4);
+	print_banner_char("/", 1);
+	print_banner_char("-", 4);
 	//the cpu line should be 43 chars long 
 	printw_c(p_cpu_line,"CPU");
-	print_banner_char(curr_banner_char, 4);
-	printw_c(p_cpu_line,"Theme:");
+	print_banner_char("-", 4);
+	printw_c(p_cpu_line,"THEME:");
 	printw_c(p_theme, theme_str);
-	print_banner_char(curr_banner_char,22-strlen(theme_str));
-	print_banner_char(curr_banner_right, 1);
+	print_banner_char("-",22-strlen(theme_str));
+	print_banner_char("\\", 1);
 
 	if (COLS < (dumpx + 18)) return; /* no space on screen */
 	move(dumpy - 1, dumpx);
-	printw_c(p_memory_line, "  ");
-	print_banner_char(curr_banner_left, 1);
-	print_banner_char(curr_banner_char, 4);
-	printw_c(p_memory_line, "MEMORY");
-	print_banner_char(curr_banner_char, 4);
-	print_banner_char(curr_banner_right, 1);
+	printw_c(p_memory_line, "  /----MEMORY----\\");
 }
 
 
@@ -671,10 +614,6 @@ void console_startup() {
 	dispend = DISPBASE + (DISPSTART + (((LINES - dispy)-1) * (dispcols)));
 }
 
-static void advance_frame(){
-	set_banner_colors();
-	nodelay(stdscr, TRUE);
-}
 void console() {
 	/* console, called from main when countdown < 0 or halt */
 	if (dump_mode == CODEMODE) {
@@ -733,13 +672,13 @@ void console() {
 			menu();
 			morecycles += (recycle + cycles);
 			cycles = -recycle; /* next refresh when it's positive */
-			advance_frame();
+			nodelay(stdscr, TRUE);
 			return;
 
 		case 's': /* single step command */
 			morecycles += cycles;
 			cycles = 0;
-			advance_frame();
+			nodelay(stdscr, TRUE);
 			return;
 
 		case 'p': /* set breakpoint = number and run command */
@@ -751,7 +690,7 @@ void console() {
 			refresh();
 			morecycles += (recycle + cycles);
 			cycles = -recycle;
-			advance_frame();
+			nodelay(stdscr, TRUE);
 			return;
 
 		case 'i': /* set breakpoint = pc and run command */
@@ -760,7 +699,7 @@ void console() {
 			menu();
 			morecycles += (cycles+recycle);
 			cycles = -recycle;
-			advance_frame();
+			nodelay(stdscr, TRUE);
 			return;
 
 		case 'o': /* set breakpoint = lastjump and run command*/
@@ -769,7 +708,7 @@ void console() {
 			menu();
 			morecycles += (cycles+recycle);
 			cycles = -recycle;
-			advance_frame();
+			nodelay(stdscr, TRUE);
 			return;
 
 		case 'n': /* set breakpoint = next instr and run command */
@@ -778,7 +717,7 @@ void console() {
 			menu();
 			morecycles += (cycles+recycle);
 			cycles = -recycle;
-			advance_frame();
+			nodelay(stdscr, TRUE);
 			return;
 
 		case '>': /* move breakpoint */
@@ -825,12 +764,6 @@ void console() {
 		
 		case 'v': /* switch theme*/
 			change_theme(0);
-			title();
-			refresh();
-			break;
-
-		case 'g': /* switch theme*/
-			set_banner_style(1);
 			title();
 			refresh();
 			break;
