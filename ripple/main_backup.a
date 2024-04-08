@@ -1,0 +1,45 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+
+	EXT	INIT_CANVAS
+	EXT	DISPLAY_CANVAS
+	EXT	DEBUG
+; canvas object
+
+	;S	MAIN
+	;S	RECREATE_MONITOR
+	;S	DISPLAY_CANVAS
+	S	MEMD_RETURN
+	INT	MAIN
+
+
+
+
+
+ARSIZE	=	4
+MAIN:
+	STORES	R1,R2
+	ADDSI	R2,ARSIZE	; -- receiving sequence
+
+	LIL	R3,INIT_R2
+	STORES	R2,R3
+
+	TOSUBR	INIT_CANVAS
+	TOSUBR	DISPLAY_CANVAS
+
+
+	LIS	R4,-11
+	LIS	R3,-35
+	LIS	R5,"a"
+
+	MOVE	R3,R7		; center = monitor_width/2
+	SR	R3,1
+	SUB	R4,R6,R5	; top = monitor_height - tree_height
+	SR	R5,1		; height = tree_height/2
+
+	ADDSI	R2,-ARSIZE	; -- return sequence
+	LOADS	PC,R2
+
+	END

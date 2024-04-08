@@ -1,0 +1,81 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+
+; canvas object
+; all funcs in this Module use RF for address of the canvas
+
+; each pixel is a word
+PX_SIZE	= 4
+PX_IN_COLUMN = 64
+
+
+CANVAS_SIZE = 1792
+
+	INT	INIT_CANVAS
+
+INIT_CANVAS:
+	C_S
+	; load monitor height*width into R3
+
+	; not in use, there is no need for so much resolution
+;	LOADCOM	R3,TERMINFO		
+;	LOADCOM	R4,TERMINFO + 4
+;	TOSUBR	TIMESU
+
+	; each number on the canvas is a bit
+	; though it is more storage efficient to use words
+	; it is much easier to manipulate this way
+	; total num of bytes = monitor + 3 cols * 8 rows + 20 (for safety)
+	; total num of words = bytes*4
+	LIL	R3,CANVAS_SIZE
+	TOSUBR	MALLOC
+
+	SETCOM	R4,R3,CANVAS
+
+	LIL	R3,30
+	TOSUBR	MALLOC
+
+	TOSUBR	FILL_CANVAS_S
+	R_S
+
+ARSIZE=4
+FILL_CANVAS_S:
+	; set a word in the canvas array
+	C_S
+	LOADCOM	RF,CANVAS
+
+	ADDI	RA,RF,CANVAS_SIZE
+	LOADCOM	R3,FILL_S_FIRST_LETTER
+	;LIS	R3,0
+	MOVE	R4,RF
+	LIS	R5,0 ;add one to break it up
+FC_LOOP:	
+	STORES	R3,R4	
+	ADDSI	R3,1
+	ADDSI	R4,4
+
+	CMPI	R3,15
+	BLE	FC_LESSTHAN15
+	LIS	R3,0
+FC_LESSTHAN15:
+
+	CMPI	R3,2
+	BEQ	FC_BREAK_RHYTHM
+FC_BREAK_RHYTHM_CONT:
+	CMP	R4,RA
+	BLT	FC_LOOP
+	R_S
+
+FC_BREAK_RHYTHM:
+	TESTR	R5
+	BLE	FC_SET_R5
+	LIS	R3,1
+	LIS	R5,0
+	BR	FC_BREAK_RHYTHM_CONT
+FC_SET_R5:
+	LIS	R5,1
+	BR	FC_BREAK_RHYTHM_CONT
+
+	END

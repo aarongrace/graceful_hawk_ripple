@@ -1,0 +1,227 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+; canvas object
+	INT	DEBUG	
+
+
+NUM_UPPER_ROWS = 24
+
+MONITOR_START = 768
+
+ARSIZE=4
+M_LEFT_COL = 22
+M_MID_COL = 36
+M_THIRD_COL = 46
+M_RIGHT_COL = 55
+RECREATE_MONITOR:
+	C_S
+	LOADCOM	RF,CANVAS
+
+	;	set RC to the start of monitor px
+	ADDI	RC,RF,MONITOR_START
+	; RA=col,RB=row
+	LIS	RB,0
+RM_NEXT_ROW:
+	LIS	RA,0
+	;setting the coords for curr row and column
+	LIL	R3,M_LEFT_COL
+	MOVE	R4,RB
+	TOSUBR	PUTAT
+RM_PRINT_ROW:	
+	; loading curr int into R3 and converting it from int to char
+	LOADS	R3,RC
+	CMPI	R3,10
+	BLT	RM_LOWER_THAN_10
+	; 10 plus "0" is ":", which is 7 away from "A"
+	ADDI	R3,R3,7
+RM_LOWER_THAN_10:
+	ADDI	R3,R3,"0"
+	TOSUBR	PUTCHAR
+
+	; after printing, increment vars
+	ADDSI	RC,4
+	ADDSI	RA,1
+
+	CMPI	RA,8	
+	BEQ	RM_SET_MID_COL
+
+	CMPI	RA,16
+	BEQ	RM_SET_THIRD_COL
+
+	CMPI	RA,24
+	BEQ	RM_SET_RIGHT_COL
+
+	CMPI	RA,32
+	BLT	RM_PRINT_ROW
+	
+	ADDSI	RB,1
+	CMPI	RB,8
+	BLT	RM_NEXT_ROW
+	R_S
+
+RM_SET_MID_COL:
+	LIL	R3,M_MID_COL
+	MOVE	R4,RB
+	TOSUBR	PUTAT
+	BR	RM_PRINT_ROW
+	
+RM_SET_THIRD_COL:
+	LIL	R3,M_THIRD_COL
+	MOVE	R4,RB
+	TOSUBR	PUTAT
+	BR	RM_PRINT_ROW
+	
+RM_SET_RIGHT_COL:
+	LIL	R3,M_RIGHT_COL
+	MOVE	R4,RB
+	TOSUBR	PUTAT
+	BR	RM_PRINT_ROW
+
+
+ARSIZE=4
+CREATE_CANVAS_WORDS:
+; turns the canvas array into words
+; uses RC=canvas pointer, RA=col, RB=row
+;	R7, temp_word, R6, pointer to word common
+	C_S
+	LOADCOM	RC,CANVAS
+	LIL	R6,CANVAS_WORDS
+
+	; RA=col,RB=row
+	LIS	RB,0
+CCW_NEXT_ROW:
+	LIS	RA,0
+	LIS	R7,0
+	;setting the coords for curr row and column
+CCW_STORE_ROW:	
+	; loading curr int into R3 and shift it into place
+	LOADS	R3,RC
+	MOVE	R4,RA
+CCW_SHIFT_LP:
+	TESTR	R4	
+	BZS	CCW_SHIFT_LP_QT
+	SL	R3,4
+	ADDSI	R4,-1
+	BR	CCW_SHIFT_LP
+CCW_SHIFT_LP_QT:
+; combining the bit from array to the temp word
+	OR	R7,R3
+
+	; moving to next bit
+	ADDSI	RC,4
+	ADDSI	RA,1
+
+	CMPI	RA,8
+	BLT	CCW_STORE_ROW
+	STORES	R7,R6
+	
+	ADDSI	R6,4
+	ADDSI	RB,1
+	CMPI	RB,NUM_UPPER_ROWS
+	BLT	CCW_NEXT_ROW
+	R_S
+
+
+RECREATE_MEMORY:
+	C_S
+	; set R6 to the row of MEMD
+	LIL	R6,CANVAS_WORDS+64
+	LIL	R5,MEMD_START
+
+	; RB=row
+	LIS	RB,0
+RMEM_ROW_LOOP:
+	; loading the word to be displayed into R3
+	LOADS	R3,R6
+	STORES	R3,R5
+	
+
+	ADDSI	R6,4
+	ADDSI	R5,4
+
+	ADDSI	RB,1
+	CMPI	RB,8
+	BLT	RMEM_ROW_LOOP
+	TOSUBR  RESTORE_RETURN_ROW
+	R_S
+
+
+;this align directive is crucial
+	ALIGN	4
+EXECUTE_TEMPLATE:
+	JSRS	R1, R1
+	ALIGN	4
+
+ARSIZE=0
+RESTORE_RETURN_ROW:
+	LIL	R3, EXECUTE_TEMPLATE	;the address that holds the template
+	LOADS	R3, R3	;loading the first line of the template into R5
+
+	LIL	R6, MEMD_RETURN	; MEMD_END, where the loop should be 
+
+	LOADS	R4, R6		;R8 contains current contents of command row
+	LIW	R5, #FFFF0000
+	AND	R4, R5		; getting digits 5-8 of current contents
+	OR	R3, R4		; combining with the command template
+	STORES	R3,R6
+	JUMPS	R1
+
+MACRO LOAD_R reg 
+	LOADS	reg,R1
+	ADDSI	R1,4
+ENDMAC
+
+ARSIZE=4
+RECREATE_REGISTERS:
+; recreating the register, this subr does not end conventionally
+; it jumps directly to MEMD_RETURN, which then goes to program cycle
+	; set R6 to the row of MEMD
+	LIL	R1,CANVAS_WORDS
+	LOAD_R R3
+	LOAD_R R4
+	LOAD_R R5
+	LOAD_R R6
+	LOAD_R R7
+	LOAD_R R8
+	LOAD_R R9
+	LOAD_R R10
+	LOAD_R R11
+	LOAD_R R12
+	LOAD_R R13
+	LOAD_R R14
+	LOAD_R R15
+
+	; loading the word to be displayed into R3
+	LOADCOM	R1,PROGRAM_CYCLE_AD
+	LIL	R2,MEMD_RETURN
+	JUMPS	R2
+
+
+	INT	DISPLAY_CANVAS
+DISPLAY_CANVAS:
+; this subr has no AR and directly jumps back to the program cycle
+	LOADCOM	RF,CANVAS
+
+;recreate hawk monitor
+	TOSUBR	RECREATE_MONITOR	
+
+
+	TOSUBR	CREATE_CANVAS_WORDS
+
+;after changing the canvas into words, there is no need to move them
+	LOADCOM	R3,CANVAS
+	TOSUBR	FREE
+
+;recreate the mem 
+	TOSUBR	RECREATE_MEMORY
+
+DEBUG:
+;recreate the reg
+	TOSUBR	RECREATE_REGISTERS
+
+	END
+	
+
+

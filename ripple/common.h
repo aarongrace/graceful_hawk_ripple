@@ -1,0 +1,89 @@
+;drawable obect def
+DRAWABLE_X = 0
+DRAWABLE_Y = 4
+DRAWABLE_VEL_X = 8
+DRAWABLE_VEL_Y = 12
+DRAWABLE_TEMPLATE = 16
+DRAWABLE_SIZE = 20
+
+	ALIGN	8
+; address of a block of words to be loaded into reg and mem
+	COMMON	CANVAS_WORDS, 100
+	ALIGN	8
+
+	;address of the canvas, which should be MALLOCed
+	COMMON CANVAS,	4
+	COMMON 	YOU_OBJ, DRAWABLE_SIZE
+	COMMON	BALL_OBJ, DRAWABLE_SIZE
+
+	;move_object
+	COMMON	FILL_S_FIRST_LETTER,4
+
+	COMMON	PROGRAM_CYCLE_AD, 4
+	COMMON	INIT_R2,4
+
+
+; the memory display
+	COMMON	MEMD_EMPTY_SPACE, 16
+	ALIGN	8
+	COMMON	MEMD_START, 64 ;allocate 8 rows for the MEMD
+MEMD_RETURN = MEMD_START+4
+MEMD_END = MEMD_START+20
+MEMD_ROWS = 8
+
+;macros
+MACRO TOSUBR subr
+	LIL	R1,subr
+	JSRS	R1,R1
+ENDMAC
+
+MACRO LOADCOM reg, com
+; loads the value of com into reg
+	LIL	reg, com
+	LOADS	reg,reg
+ENDMAC
+
+MACRO SETCOM reg, reg2, com
+; stores the value of reg2 into com
+	LIL	reg, com
+	STORES	reg2,reg
+ENDMAC
+
+MACRO SETCOMI reg, reg2, com, =val
+; stores the value of val into com
+	LIL	reg, com
+	LIL	reg2, val
+	STORES	reg2,reg
+ENDMAC
+
+MACRO C_S
+	STORES	R1,R2
+	ADDI	R2,R2,ARSIZE
+ENDMAC
+
+MACRO R_S
+	ADDI	R2,R2,-ARSIZE
+	LOADS	PC,R2
+ENDMAC
+
+	ALIGN	8
+
+BACKGROUND:
+	W	#11137777
+	W	#11113777
+	W	#11111377
+	W	#11111133
+	W	#01111133
+	W	#00111113
+	W	#00011113
+	W	#00000111
+
+BALL_TEMPLATE:
+	W	#00000304
+	W	#00001BAE
+	W	#00002BAE
+	W	#00003BAE
+
+YOU_TEMPLATE:
+	W	#00000103
+	W	#00000FAB
