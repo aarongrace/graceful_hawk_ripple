@@ -13,69 +13,136 @@ PX_IN_COLUMN = 64
 
 CANVAS_SIZE = 1792
 
-	INT	INIT_CANVAS
 
+	INT	INIT_CANVAS
+ARSIZE=4 ;||||||||||||||||||||||||||||||||||||||||||||||
 INIT_CANVAS:
 	C_S
-	; load monitor height*width into R3
-
-	; not in use, there is no need for so much resolution
-;	LOADCOM	R3,TERMINFO		
-;	LOADCOM	R4,TERMINFO + 4
-;	TOSUBR	TIMESU
 
 	; each number on the canvas is a bit
 	; though it is more storage efficient to use words
 	; it is much easier to manipulate this way
-	; total num of bytes = monitor + 3 cols * 8 rows + 20 (for safety)
-	; total num of words = bytes*4
-	LIL	R3,CANVAS_SIZE
-	TOSUBR	MALLOC
 
+	; the canvas is a two-dimensional array with varying lengths
+	LIL	R3,C_ROWS
+	SL	R3,2
+	TOSUBR	MALLOC
 	SETCOM	R4,R3,CANVAS
-
-	LIL	R3,30
+	
+	MOVE	RA,R3	;RA is used as pointer to canvas obj
+	LIS	R8,0	; R8=curr_row
+	LIL	R9,C_UPPER_COLS ;R9 = cols to allocate
+	SL	R9,2
+IC_LOOP:
+	MOVE	R3,R9	;allocate cols*4 bytes
 	TOSUBR	MALLOC
+	STORES	R3,RA	; store the pointer to the row
+
+	ADDSI	R8,1
+	; if R8 is 8, switch to col numbers for monitor
+	CMPI	R8,8
+	BNE	IC_NOT_8
+	LIL	R9,C_LOWER_COLS
+	SL	R9,2
+IC_NOT_8:
+	ADDSI	RA,4
+	CMPI	R8,C_ROWS
+	BLT	IC_LOOP
 
 	TOSUBR	FILL_CANVAS_S
 	R_S
 
-ARSIZE=4
+;ARSIZE=4
+;DRAW_ON_CANVAS:
+;	C_S
+;	; takes R3=hex to draw, R4=x,R5=y
+;	TESTR	R5
+;	BLT	DOC_MONITOR
+;	
+;	TESTR	R4
+;	BLT	DOC_REGISTER
+;	TOSUBR	TO_MEMORY_COORDS
+;
+;DOC_REGISTER:
+;	TOSUBR	TO_REGISTER_COORDS
+;
+;DOC_MONITOR:
+;	TOSUBR	TO_MONITOR_COORDS
+;DOC_HAS_COORDS:
+;	R_S
+;
+;	
+;ARSIZE=4
+;TO_MEMORY_COORDS:
+;	; takes R3=hex to draw, R4=x,R5=y
+;	BR	DOC_HAS_COORDS
+;
+;ARSIZE=4
+;TO_REGISTER_COORDS:
+;	; takes R3=hex to draw, R4=x,R5=y
+;	BR	DOC_HAS_COORDS
+;
+;
+;ARSIZE=4
+;TO_MONITOR_COORDS:
+;	; takes R3=hex to draw, R4=x,R5=y
+;	BR	DOC_HAS_COORDS
+;
+ARSIZE=4  ;|||||||||||||||||||||||||||||||||||||||||||||
 FILL_CANVAS_S:
 	; set a word in the canvas array
 	C_S
 	LOADCOM	RF,CANVAS
-
-	ADDI	RA,RF,CANVAS_SIZE
 	LOADCOM	R3,FILL_S_FIRST_LETTER
-	;LIS	R3,0
-	MOVE	R4,RF
-	LIS	R5,0 ;add one to break it up
-FC_LOOP:	
-	STORES	R3,R4	
-	ADDSI	R3,1
-	ADDSI	R4,4
 
+;---------------------------------rows loop
+	LIS	R8,0	; R8=curr_row
+	LIL	R9,C_UPPER_COLS ;R9 = cols to fill
+FCS_ROWS_LOOP:
+	LOADS	RA,RF	;RA is used as pointer to canvas row
+;------------------one row loop
+	LIS	R7,0	; R7=curr_col
+	LIS	R5,0	; R5=control for break rhthm
+FCS_FILL_EACH_COLUMN:
+	STORES	R3,RA	; store the char to the col
+
+	ADDSI	R3,1 ;increment the char
 	CMPI	R3,15
-	BLE	FC_LESSTHAN15
-	LIS	R3,0
-FC_LESSTHAN15:
-
-	CMPI	R3,2
-	BEQ	FC_BREAK_RHYTHM
-FC_BREAK_RHYTHM_CONT:
-	CMP	R4,RA
-	BLT	FC_LOOP
-	R_S
-
-FC_BREAK_RHYTHM:
-	TESTR	R5
-	BLE	FC_SET_R5
-	LIS	R3,1
-	LIS	R5,0
-	BR	FC_BREAK_RHYTHM_CONT
-FC_SET_R5:
+	BLE	FCS_R3_NOT_15
+	TESTR	R5	; if R5 is 1, set R3 to 0 instead of 1 to break the rhythm
+	BEQ	FCS_R5_0
 	LIS	R5,1
-	BR	FC_BREAK_RHYTHM_CONT
+	LIS	R3,1
+	BR	FCS_R3_NOT_15
+FCS_R5_0:
+	LIS	R5,1
+	LIS	R3,0
+
+FCS_R3_NOT_15:
+	ADDSI	R7,1
+	ADDSI	RA,4
+	CMP	R7,R9
+	BLT	FCS_FILL_EACH_COLUMN
+;----------------
+	ADDSI	R8,1 
+
+	CMPI	R8,8	 ; if R8 is 8, switch to col numbers for monitor
+	BNE	FCS_NOT_8
+	LIL	R9,C_LOWER_COLS
+
+FCS_NOT_8:
+	ADDSI	RF,4	; moving to next row
+	CMPI	R8,C_ROWS
+	BLT	FCS_ROWS_LOOP
+	R_S
+END
+;-----------------------------------for testing
+	INT MAIN
+	S	DRAW_ON_CANVAS
+MAIN:
+	LIS	R3,F
+	LIS	R4,3
+	LIS	R5,3
+	TOSUBR DRAW_ON_CANVAS
 
 	END

@@ -8,7 +8,7 @@ DRAWABLE_SIZE = 20
 
 	ALIGN	8
 ; address of a block of words to be loaded into reg and mem
-	COMMON	CANVAS_WORDS, 100
+	COMMON	CANVAS_WORDS, 300
 	ALIGN	8
 
 	;address of the canvas, which should be MALLOCed
@@ -21,6 +21,18 @@ DRAWABLE_SIZE = 20
 
 	COMMON	PROGRAM_CYCLE_AD, 4
 	COMMON	INIT_R2,4
+
+; canvas parameters
+C_UPPER_ROWS = 8
+C_LOWER_ROWS = 8
+C_ROWS = C_UPPER_ROWS + C_LOWER_ROWS
+
+C_UPPER_COLS = 24
+C_LOWER_COLS = 33
+
+C_UPPER_WORDS = 3
+C_LOWER_WORDS = 5
+
 
 
 ; the memory display
