@@ -3,14 +3,14 @@
 # (If you try to use this makefile on a different system, you will need
 # to change the file names to where hawk and hawklink are installed there.)
 smal=~/maison/hawk/smal32 -P 45 -U ~/maison/hawk -L
-hawklink=~/maison/hawk/hawklink
+hawklink=~/maison/hawk/hawklink -m -o ripples ~/maison/hawk/monitor.o
 hawk=~/maison/graceful_hawk/hawk
 
 ##########
 # primary make target
 
 whatever.o: main.o canvas.o display.o move_objects.o
-	$(hawklink) -o ripples main.o move_objects.o canvas.o display.o &&	$(hawk)	ripples.o
+	$(hawklink) main.o move_objects.o canvas.o display.o &&	$(hawk)	ripples.o
 
 ##########
 # other make targets
