@@ -31,7 +31,7 @@ cpulib = -lm
 #---- exactly one of the following definition pairs must be uncommented
 
 # the Hawk console
-console = console.o showop.o
+console = console.o showop.o graceful_hawk.o
 conslib = -lcurses -ltermcap
 
 #---- exactly one of the following definition pairs must be uncommented
@@ -83,7 +83,8 @@ $(objects): bus.h Makefile
 cpu.o: irfields.h float.h powerup.h console.h
 float.o: float.h
 powerup.o: powerup.h
-console.o: console.h showop.h float.h
+console.o: console.h showop.h float.h graceful_hawk.h
+graceful_hawk.o: graceful_hawk.h
 showop.o: showop.h irfields.h
 
 ##########################################################################

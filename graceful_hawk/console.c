@@ -12,6 +12,7 @@
    Language: C (UNIX) with -lcurses option
    Purpose: Hawk Emulator console support;
 */
+#include <time.h>
 #include <string.h>
 #include <stdarg.h>
 #include <inttypes.h>
@@ -20,7 +21,7 @@
 #include <curses.h>
 #include <signal.h>
 /*#include <sys/ioctl.h>*/
-
+#include "graceful_hawk.h"
 #include "bus.h"
 #include "float.h"
 #include "showop.h"
@@ -103,198 +104,6 @@ WORD dump_mode = CODEMODE;
 
 
 /*******************
- * Graceful Hawk colors *
- *******************/
-/* starts at 30*/
-#define p_title 31
-#define p_status_text 32
-#define p_status_num 33
-#define p_register_text 34
-#define p_register_num 35
-#define p_memory_add 36
-#define p_memory_text 37
-#define p_memory_num 38
-#define p_menu 39
-#define p_cpu_line 40
-#define p_theme 41
-#define p_memory_line 50
-
-#define banner_temp 200
-#define banner_len 6
-static int banner_stage = 0;
-#define bs_disco 0
-#define bs_gradient 1
-#define bs_alternating 2
-static int curr_banner_style = bs_gradient;
-static char* curr_banner_char;
-static char* curr_banner_left;
-static char* curr_banner_right;
-
-#define t_default 1
-#define t_desert 2
-#define t_ocean 4
-#define t_meadows 3
-#define t_crimson 5
-#define t_last 5
-static int curr_theme = t_default;
-static char * theme_str;
-
-static void create_pair_bg_b(int index, int r, int g, int b){
-	init_color(index, r, g, b);
-	init_pair(index, index, COLOR_BLACK);
-}
-
-
-static int mod_color_val(int color, float m){
-	int new_color = (int) color * m;
-	//return the minimum of the new color and 1000
-	if (new_color>1000){
-		return 1000;
-	} else {
-		return new_color;
-	}
-}
-static float mr = 1;
-static float mg = 1;
-static float mb = 1;
-static void set_banner_colors(){
-	for (int i =0; i<banner_len; i++){
-		int temp = banner_stage + i;
-		if (temp >= banner_len){
-			temp -= banner_len;
-		}
-		init_pair(banner_temp + i, banner_temp + temp, COLOR_BLACK);
-	}
-	banner_stage += 1;
-	if (banner_stage >= banner_len){
-		banner_stage = 0;
-	}
-}
-
-static void set_banner_style(int incre){
-	curr_banner_style += incre;
-	if (curr_banner_style > bs_alternating){
-		curr_banner_style = bs_disco;
-	}
-	switch (curr_banner_style){
-		case bs_disco:
-			curr_banner_char = "$";
-			curr_banner_left = "\\";
-			curr_banner_right = "/";
-			init_color(banner_temp + 0, mod_color_val(700, mr), mod_color_val(400, mg), mod_color_val(600, mb));
-			init_color(banner_temp + 1, mod_color_val(400, mr), mod_color_val(800, mg), mod_color_val(500, mb));
-			init_color(banner_temp + 2, mod_color_val(800, mr), mod_color_val(700, mg), mod_color_val(500, mb));
-			init_color(banner_temp + 3, mod_color_val(500, mr), mod_color_val(400, mg), mod_color_val(800, mb));
-			init_color(banner_temp + 4, mod_color_val(600, mr), mod_color_val(800, mg), mod_color_val(500, mb));
-			init_color(banner_temp + 5, mod_color_val(700, mr), mod_color_val(600, mg), mod_color_val(850, mb));
-			break;
-		case bs_gradient:
-			curr_banner_char = "~";
-			curr_banner_left = "/";
-			curr_banner_right = "\\";
-			init_color(banner_temp + 0, mod_color_val(1000, mr), mod_color_val(800, mg), mod_color_val(550, mb));
-			init_color(banner_temp + 1, mod_color_val(800, mr), mod_color_val(850, mg), mod_color_val(750, mb));
-			init_color(banner_temp + 2, mod_color_val(775, mr), mod_color_val(700, mg), mod_color_val(850, mb));
-			init_color(banner_temp + 3, mod_color_val(500, mr), mod_color_val(700, mg), mod_color_val(1000, mb));
-			init_color(banner_temp + 4, mod_color_val(750, mr), mod_color_val(800, mg), mod_color_val(900, mb));
-			init_color(banner_temp + 5, mod_color_val(800, mr), mod_color_val(600, mg), mod_color_val(950, mb));
-			break;
-		case bs_alternating:
-			curr_banner_char = "|";
-			curr_banner_left = "-";
-			curr_banner_right = "-";
-			init_color(banner_temp + 0, mod_color_val(600, mr), mod_color_val(700, mg), mod_color_val(900, mb));
-			init_color(banner_temp + 1, mod_color_val(600, mr), mod_color_val(700, mg), mod_color_val(900, mb));
-			init_color(banner_temp + 2, mod_color_val(600, mr), mod_color_val(700, mg), mod_color_val(900, mb));
-			init_color(banner_temp + 3, mod_color_val(900, mr), mod_color_val(600, mg), mod_color_val(700, mb));
-			init_color(banner_temp + 4, mod_color_val(900, mr), mod_color_val(600, mg), mod_color_val(700, mb));
-			init_color(banner_temp + 5, mod_color_val(900, mr), mod_color_val(600, mg), mod_color_val(700, mb));
-			break;
-	}
-}
-static void set_theme(){
-	init_color(COLOR_BLACK, 110, 110, 100);
-	switch (curr_theme){
-		case t_desert:
-			theme_str = "dune";
-			mr = 1.18;
-			mg = 1.05;
-			mb = 0.91;
-			break;
-		case t_ocean:
-			theme_str = "ocean";
-			mr = 0.6;
-			mg = 1.05;
-			mb = 1.2;
-			break;
-		case t_crimson:
-			theme_str = "crimson";
-			mr = 1.35;
-			mg = 0.75;
-			mb = 0.7;
-			break;
-		case t_meadows:
-			theme_str = "meadows";
-			mr = 0.85;
-			mg = 1.2;
-			mb = 0.9;
-			break;
-		default:
-			theme_str = "black marsh";
-			mr = 1;
-			mg = 1;
-			mb = 1;
-			break;
-	}
-	create_pair_bg_b(p_title, mod_color_val(650, mr),mod_color_val(550, mg),mod_color_val(950, mb));
-	create_pair_bg_b(p_status_text, mod_color_val(800, mr),mod_color_val(850, mg),mod_color_val(500, mb));
-	create_pair_bg_b(p_status_num, mod_color_val(700, mr),mod_color_val(850, mg),mod_color_val(960, mb));
-	create_pair_bg_b(p_register_text, mod_color_val(1000, mr),mod_color_val(850, mg),mod_color_val(700, mb));
-	create_pair_bg_b(p_register_num, mod_color_val(800, mr),mod_color_val(750, mg),mod_color_val(1000, mb));
-	create_pair_bg_b(p_memory_add, mod_color_val(1000, mr),mod_color_val(850, mg),mod_color_val(700, mb));
-	create_pair_bg_b(p_memory_text, mod_color_val(750, mr),mod_color_val(950, mg),mod_color_val(650, mb));
-	create_pair_bg_b(p_memory_num, mod_color_val(650, mr),mod_color_val(850, mg),mod_color_val(950, mb));
-	create_pair_bg_b(p_menu, mod_color_val(650, mr),mod_color_val(670, mg),mod_color_val(850, mb));
-	create_pair_bg_b(p_cpu_line, mod_color_val(500, mr),mod_color_val(650, mg),mod_color_val(800, mb));
-	create_pair_bg_b(p_theme, mod_color_val(800, mr),mod_color_val(900, mg),mod_color_val(1000, mb));
-	create_pair_bg_b(p_memory_line, mod_color_val(650, mr),mod_color_val(450, mg),mod_color_val(800, mb));
-
-	set_banner_style(0);
-	set_banner_colors();
-}
-
-static void change_theme(int theme){
-	if (theme == 0){
-		curr_theme += 1;
-		if (curr_theme > t_last){
-			curr_theme = t_default;
-		}
-	} else {
-		curr_theme = theme;
-	}
-	set_theme();
-}
-
-#define printw_c(color_num, ...) \
-	attron(COLOR_PAIR(color_num));\
-	printw(__VA_ARGS__); \
-	attroff(COLOR_PAIR(color_num));
-
-/*************************
- * Graceful Hawk additions
- * ***********************/
-WORD last_pc=0;
-WORD last_jump;
-
-#define debugy 6
-#define debugx 1
-
-static void debug(WORD var){
-	move(debugy, debugx);
-	printw_c(p_menu,"debug:  %08"PRIX32, var);
-}
-
-/*******************
  * console display *
  *******************/
 static int banner_at = 0;
@@ -318,7 +127,7 @@ static void title() {
 	printw_c(p_cpu_line,"CPU");
 	print_banner_char(curr_banner_char, 4);
 	printw_c(p_cpu_line,"Theme:");
-	printw_c(p_theme, theme_str);
+	printw_c(p_theme_txt, theme_str);
 	print_banner_char(curr_banner_char,22-strlen(theme_str));
 	print_banner_char(curr_banner_right, 1);
 
@@ -330,6 +139,7 @@ static void title() {
 	printw_c(p_memory_line, "MEMORY");
 	print_banner_char(curr_banner_char, 4);
 	print_banner_char(curr_banner_right, 1);
+
 }
 
 
@@ -377,14 +187,26 @@ static void status() {
 	for (i = 1; i < 8; i++) {
 		move(pcy + i, pcx + 15);
 		printw_c(p_register_text, "R%1X: ", i);
-		printw_c(p_register_num, "%08"PRIX32, r[i]);
+		if (cn_on){
+			print_colorful_nums(r[i]);
+		} else {
+			printw_c(p_register_num, "%08" PRIX32, r[i]);
+		}
+		 
 	}
 	for (i = 8; i < 16; i++) {
 		move(pcy + (i - 8), pcx + 29);
 		printw_c(p_register_text, "R%1X: ", i);
-		printw_c(p_register_num, "%08"PRIX32, r[i]);
+		if (cn_on){
+			print_colorful_nums(r[i]);
+		} else {
+			printw_c(p_register_num, "%08" PRIX32, r[i]);
+		}
+		// printw_c(p_register_num, "%08"PRIX32, r[i]);
+
 	}
 }
+
 
 static void dump() {
 	/* display memory on screen */
@@ -411,7 +233,11 @@ static void dump() {
 			if (addr < MAXMEM) {
 				WORD data = m[addr>>2];
 				printw_c(p_memory_add, "%06"PRIX32": ", addr&(WORD)0x00FFFFFFUL)
-				printw_c(p_memory_num, "%08"PRIX32, data);
+				if (!cn_on){
+					printw_c(p_memory_num, "%08" PRIX32, data);
+				} else {
+					print_colorful_nums(data);
+				}
 				if (COLS >= (dumpx + 25)) {
 					int i;
 					attron(COLOR_PAIR(p_memory_text));
@@ -512,6 +338,26 @@ static void menu() {
 static int dispend; /* the end address of the display memory */
 static int dispcols; /* the number of displayed columns */
 
+static void dispwrite_char(char c){
+	//adding this flag to see if we need to use attroff
+	//if there are non-hex chars to be printed, there is no need to attroff
+	bool color_set = false;
+	int color_index;
+	if (cn_on){
+		// for whatever reason, isxdigit() is not working on 'A' -'F'
+		if ('0' <= c && c <= '9') {
+			color_set = true;
+			color_index = p_nums + c - '0';
+			attron(COLOR_PAIR(color_index));
+		} else if ('A' <= c && c <= 'F') {
+			color_set = true;
+			color_index = p_nums + c - 'A' + 9;
+			attron(COLOR_PAIR(color_index));
+		}
+	}
+	if (c >= ' ') {addch(c);} else {addch(c|'@');}
+	if (cn_on && color_set) attroff(COLOR_PAIR(color_index));
+}
 void dispwrite(WORD addr, WORD val) {
 	/* addr is relative to display's address range */
 	/* val is value to display */
@@ -527,10 +373,10 @@ void dispwrite(WORD addr, WORD val) {
 			char c2 = (val >>16) & 0x7F;
 			char c3 = (val >>24) & 0x7F;
 			move(y, x);
-			if (c0 >= ' ') {addch(c0);} else {addch(c0|'@');}
-			if (c1 >= ' ') {addch(c1);} else {addch(c1|'@');}
-			if (c2 >= ' ') {addch(c2);} else {addch(c2|'@');}
-			if (c3 >= ' ') {addch(c3);} else {addch(c3|'@');}
+			dispwrite_char(c0);
+			dispwrite_char(c1);
+			dispwrite_char(c2);
+			dispwrite_char(c3);
 			return;
 		}
 	} else {
@@ -662,7 +508,7 @@ void console_startup() {
 	/* assume that breakpoint is already set or zeroed */
 	initscr(); cbreak(); noecho(); clear(); /* curses startup */
 	start_color();
-	set_theme();
+	init_themes_and_color_pairs();
 	signal(SIGINT, console_sig);
 	title();
 	menu();
@@ -688,9 +534,15 @@ void console() {
 	}
 	dump();
 	status();
-	debug(r[1]);
 	if ((pc == breakpoint)||(pc == 0)) { /* address zero always a break */
-		running = FALSE;
+		if (animation_mode == 0){
+			running = FALSE;
+		} else {
+			   struct timespec tim, tim2;
+			   tim.tv_sec = 0;
+			   tim.tv_nsec = 50000000L;
+			   nanosleep(&tim, &tim2);
+		}
 		which_menu = 1;
 	}
 	if (running) {
@@ -822,18 +674,6 @@ void console() {
 			dump();
 			refresh();
 			break;
-		
-		case 'v': /* switch theme*/
-			change_theme(0);
-			title();
-			refresh();
-			break;
-
-		case 'g': /* switch theme*/
-			set_banner_style(1);
-			title();
-			refresh();
-			break;
 
 		case '+': /* increment dumped memory command */
 			if (dump_mode == DATAMODE) {
@@ -860,6 +700,42 @@ void console() {
 			if (which_menu >= NUM_MENUS) which_menu = 1;
 			menu();
 			break;
+
+		/**
+		 * graceful hawk functions*/	
+		case 'v': /* switch theme*/
+			change_theme(0);
+			title();
+			refresh();
+			break;
+
+		case 'g': /* switch banner style*/
+			set_banner_style(1);
+			title();
+			refresh();
+			break;
+		
+		case 'x': /* turn on/off colorful numbers*/
+			switch_colorful_nums();
+			refresh();
+			console();
+			break;
+
+		case 'w': /* run command */
+			if (animation_mode == 0) {
+				running = TRUE;
+				animation_mode = 1;
+				menu();
+				morecycles += (recycle + cycles);
+				cycles = -recycle; /* next refresh when it's positive */
+				advance_frame();
+			}
+			else {
+				animation_mode=0;
+			}
+			return;
 		}
+
+
 	}
 }

@@ -52,6 +52,7 @@ static WORD snoop;  /* the snooping address (LOADL,STOREC) */
 static WORD carries; /* the carry bits from the adder */
 static WORD imask;   /* which interrupts are enabled (from LEVEL field) */
 
+int animation_mode = 0;
 
 /**********************/
 /* Arithmetic Support */

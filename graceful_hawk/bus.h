@@ -57,6 +57,7 @@ EXTERN WORD recycle;
  */
 EXTERN WORD breakpoint;
 
+extern int animation_mode;
 
 /*****************************************************/
 /* Globals that really aren't really part of the bus */
@@ -195,3 +196,4 @@ EXTERN WORD irq;    /* interrupt request */
 #define IRQ5  (WORD)0x00000020UL
 #define IRQ6  (WORD)0x00000040UL
 #define IRQ7  (WORD)0x00000080UL
+
