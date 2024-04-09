@@ -5,6 +5,13 @@
 ; canvas object
 	INT	DEBUG	
 
+; address of two blocks of words to be loaded into reg and mem
+; leaving one word each as a cushion
+	COMMON	REG_WORDS, 66
+	COMMON	MEM_WORDS, 34
+;	COMMON	CANVAS_WORDS, 100
+UPPER_WORDS=24	; there 8 * 3 words for the register and the memory
+
 
 
 MONITOR_START = 768
@@ -80,34 +87,29 @@ RM_SET_RIGHT_COL:
 	TOSUBR	PUTAT
 	BR	RM_PRINT_ROW
 
+
+
 ARSIZE=4
-CREATE_CANVAS_WORDS:;||||||||||||||||||||||||||||||||||||
+CREATE_REG_MEM_WORDS:	;||||||||||||||||||||||||||||||||||||
 ; turns the canvas array into words
-; uses RF=curr_row, R6=curr word in canvas words
-; uses RA=current word in row, RB=curr_row
-; uses R7 = curr_bit, R8=temp_word
-; R9 words to be filled for the row
+; uses 	RC=canvas pointer, RA=bit, RB=row, RE=column
+;	R7, temp_word, R6, pointer to word common
 	C_S
-	LOADCOM	RF,CANVAS
-	LIL	R6,CANVAS_WORDS
+	LOADCOM	RF,CANVAS	; pointer to canvas row
+	LIL	R5,REG_WORDS	;pointer to curr reg word
+	LIL	R6,MEM_WORDS	;pointer to curr mem word
 
-;--------------------------------------canvas scope
-	LIS	RB, 0	; curr row
-	LIS	R9,C_UPPER_WORDS	;words to fill
-CCW_ITER_ROWS:
-	LOADS	RE,RF	; RE points to current row in CANVAS
-
-CCW_ROW_LOOP:;-------row scope
-	LIS	RA, 0	; curr word in row
-
-CCW_STORE_WORD:
-;--------------word scope
-	LIS	R7,0	; R7=curr_bit
-	LIS	R8,0	 ; R8=temp_word
-CCW_GET_BIT:	
+	LIS	RB,0	; horizontal row
+CCW_ROW_LP:;-----------------horizontal row (three 8s) scope
+	LOADS	RC,RF	; curr row in canvas
+	LIS	RE,0	; the column
+CCW_WORD_LP:;-----------------------column scope 
+	LIS	RA,0	; bit
+	LIS	R7,0	; temp word
+CCW_ADD_BIT:	;------------word scope
 	; loading curr int into R3 and shift it into place
-	LOADS	R3,RE
-	MOVE	R4,R7
+	LOADS	R3,RC	; curr int
+	MOVE	R4,RA	; R4 is used to shift the right amount of bits
 CCW_SHIFT_LP:
 	TESTR	R4	
 	BZS	CCW_SHIFT_LP_QT
@@ -115,36 +117,38 @@ CCW_SHIFT_LP:
 	ADDSI	R4,-1
 	BR	CCW_SHIFT_LP
 CCW_SHIFT_LP_QT:
-; combining the bit from array to the temp word
-	OR	R8,R3
-	; moving to next bit
-	
-	ADDSI	RE,4
-	ADDSI	R7,1
-	CMPI	R7,8
-	BLT	CCW_GET_BIT
-	STORES	R8,R6
-	ADDSI	R6,4
+	OR	R7,R3	; combining the bit from array to the temp word
 
+	ADDSI	RC,4 ; moving to next bit
 	ADDSI	RA,1
-	CMP	RA,R9	;comparing curr word to words to fill
-	BLT	CCW_STORE_WORD
-;-----at this point, a whole row should have been filled up
+
+	CMPI	RA,8
+	BLT	CCW_ADD_BIT
+;------------------end of word word scope, deciding column
+	CMPI	RE,2
+	BEQ	CCW_STORE_MEM
+CCW_STORE_REG:
+	STORES	R7,R5	;storing into REG array
+	ADDSI	R5,4
+	ADDSI	RE,1	;incre column
+	BR	CCW_WORD_LP
+CCW_STORE_MEM:
+	STORES	R7,R6	;storing into MEM array
+;------------------------end row scope
+	ADDSI	R6,4
+	ADDSI	RF,4
 
 	ADDSI	RB,1
-	ADDSI	RF,4	; incre canvas pointer to next row
-	CMPI	RB,8
-	BLT	CCW_ITER_ROWS
+	CMPI	RB,C_UPPER_ROWS
+	BLT	CCW_ROW_LP
+;---------------------------------------------end canvas scope
 	R_S
-
-
-
 
 
 RECREATE_MEMORY: ;||||||||||||||||||||||||||||||||||||||||
 	C_S
 	; set R6 to the row of MEMD
-	LIL	R6,CANVAS_WORDS+64
+	LIL	R6,MEM_WORDS
 	LIL	R5,MEMD_START
 
 	; RB=row
@@ -154,7 +158,6 @@ RMEM_ROW_LOOP:
 	LOADS	R3,R6
 	STORES	R3,R5
 	
-
 	ADDSI	R6,4
 	ADDSI	R5,4
 
@@ -195,7 +198,7 @@ RECREATE_REGISTERS:
 ; recreating the register, this subr does not end conventionally
 ; it jumps directly to MEMD_RETURN, which then goes to program cycle
 	; set R6 to the row of MEMD
-	LIL	R1,CANVAS_WORDS
+	LIL	R1,REG_WORDS
 	LOAD_R R3
 	LOAD_R R4
 	LOAD_R R5
@@ -235,16 +238,13 @@ FC_LP:
 	TOSUBR	FREE
 	R_S
 
-	S	DISPLAY_CANVAS
 	INT	DISPLAY_CANVAS
 DISPLAY_CANVAS:; |||||||||||||||||||||||||||||||||||||
 ; this subr has no AR and directly jumps back to the program cycle
-	LOADCOM	RF,CANVAS
 
-	TOSUBR	CREATE_CANVAS_WORDS
+	;TOSUBR	RECREATE_MONITOR	;recreate hawk monitor
+	TOSUBR	CREATE_REG_MEM_WORDS
 	TOSUBR	FREE_CANVAS
-
-	TOSUBR	RECREATE_MONITOR	;recreate hawk monitor
 	TOSUBR	RECREATE_MEMORY		 ;recreate the mem 
 
 DEBUG:

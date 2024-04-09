@@ -7,9 +7,6 @@ DRAWABLE_TEMPLATE = 16
 DRAWABLE_SIZE = 20
 
 	ALIGN	8
-; address of a block of words to be loaded into reg and mem
-	COMMON	CANVAS_WORDS, 300
-	ALIGN	8
 
 	;address of the canvas, which should be MALLOCed
 	COMMON CANVAS,	4

@@ -111,8 +111,8 @@ FCS_FILL_EACH_COLUMN:
 	BLE	FCS_R3_NOT_15
 	TESTR	R5	; if R5 is 1, set R3 to 0 instead of 1 to break the rhythm
 	BEQ	FCS_R5_0
-	LIS	R5,1
-	LIS	R3,1
+	LIS	R5,0
+	LIS	R3,15
 	BR	FCS_R3_NOT_15
 FCS_R5_0:
 	LIS	R5,1
