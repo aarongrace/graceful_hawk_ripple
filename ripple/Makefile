@@ -9,21 +9,21 @@ hawk=~/maison/graceful_hawk/hawk
 ##########
 # primary make target
 
-whatever.o: main.o canvas.o display.o move_objects.o
+whatever.o: main.o canvas.o display.o move_objects.o common.h
 	$(hawklink) main.o move_objects.o canvas.o display.o &&	$(hawk)	ripples.o
 
 ##########
 # other make targets
-main.o: main.a
+main.o: main.a common.h
 	$(smal) main.a
 
-move_objects.o: move_objects.a
+move_objects.o: move_objects.a common.h
 	$(smal) move_objects.a
 
-canvas.o: canvas.a
+canvas.o: canvas.a common.h
 	$(smal) canvas.a
 
-display.o: display.a
+display.o: display.a common.h
 	$(smal) display.a
 
 ##########

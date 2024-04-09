@@ -88,6 +88,7 @@ IC_NOT_8:
 ;	; takes R3=hex to draw, R4=x,R5=y
 ;	BR	DOC_HAS_COORDS
 ;
+;S FILL_CANVAS_S
 ARSIZE=4  ;|||||||||||||||||||||||||||||||||||||||||||||
 FILL_CANVAS_S:
 	; set a word in the canvas array

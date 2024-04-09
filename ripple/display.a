@@ -13,14 +13,19 @@
 UPPER_WORDS=24	; there 8 * 3 words for the register and the memory
 
 
-
 MONITOR_START = 768
 
+MACRO COL_BREAK_CHECK =comp, =start_x, check
+	CMPI	RA,comp
+	BNE	check
+	LIL	R3,start_x
+	MOVE	R4,RB
+	LIL	R1,PUTAT
+	JSRS	R1,R1
+	BR	RM_END_COL_BREAK_CHECK
+ENDMAC
+
 ARSIZE=4
-M_LEFT_COL = 22
-M_MID_COL = 36
-M_THIRD_COL = 46
-M_RIGHT_COL = 55
 RECREATE_MONITOR:; |||||||||||||||||||||||||||||
 	C_S
 	LOADCOM	RF,CANVAS
@@ -28,13 +33,13 @@ RECREATE_MONITOR:; |||||||||||||||||||||||||||||
 	SL	R3,2
 	ADD	RF,RF,R3 ;set RF to start of monitor rows
 
-	; RA=col_printed,RB=row_printed
-	LIS	RB,0
-RM_ROWS_LOOP:
-
-	LIS	RA,0
-	;setting the coords for curr row and column
-	LIL	R3,M_LEFT_COL
+	LIS	RB,0	;row
+;-------------------monitor scope--------------------
+RM_ROW_LOOP:
+	LOADS	RC,RF
+;---------------------row scope-----
+	LIS	RA,0	; bit
+	LIL	R3,M_LEFT_S	 ; where reg nums start
 	MOVE	R4,RB
 	TOSUBR	PUTAT
 RM_PRINT_ROW:	
@@ -52,40 +57,34 @@ RM_LOWER_THAN_10:
 	ADDSI	RC,4
 	ADDSI	RA,1
 
-	CMPI	RA,8	
-	BEQ	RM_SET_MID_COL
+;	CMPI	RA,8
+;	BNE	RM_END_COL_BREAK_CHECK
+;	LIL	R3,M_MID_COL
+;	MOVE	R4,RB
+;	LIL	R1,PUTAT
+;	JSRS	R1,R1
+;	BR	RM_END_COL_BREAK_CHECK
+;
+	COL_BREAK_CHECK M_LEFT_W, M_MID_S, MID_CHECK
+MID_CHECK:
+	COL_BREAK_CHECK M_LEFT_W + M_MID_W, M_THIRD_S, THIRD_CHECK
+THIRD_CHECK:
+	COL_BREAK_CHECK M_LEFT_W + M_MID_W + M_THIRD_W, M_RIGHT_S, RM_END_COL_BREAK_CHECK
+;	COL_BREAK_CHECK 16, M_MID_COL
+;	COL_BREAK_CHECK 8, M_MID_COL
+;	COL_BREAK_CHECK M_MID_COL + 8, M_THIRD_COL
+;	COL_BREAK_CHECK M_THIRD_COL + 8, M_RIGHT_COL
 
-	CMPI	RA,16
-	BEQ	RM_SET_THIRD_COL
-
-	CMPI	RA,24
-	BEQ	RM_SET_RIGHT_COL
-
-	CMPI	RA,32
+RM_END_COL_BREAK_CHECK:
+	CMPI	RA,C_LOWER_COLS
 	BLT	RM_PRINT_ROW
-	
+
+	ADDSI	RF,4
 	ADDSI	RB,1
 	CMPI	RB,8
-	BLT	RM_ROWS_LOOP
+	BLT	RM_ROW_LOOP
 	R_S
 
-RM_SET_MID_COL:
-	LIL	R3,M_MID_COL
-	MOVE	R4,RB
-	TOSUBR	PUTAT
-	BR	RM_PRINT_ROW
-	
-RM_SET_THIRD_COL:
-	LIL	R3,M_THIRD_COL
-	MOVE	R4,RB
-	TOSUBR	PUTAT
-	BR	RM_PRINT_ROW
-	
-RM_SET_RIGHT_COL:
-	LIL	R3,M_RIGHT_COL
-	MOVE	R4,RB
-	TOSUBR	PUTAT
-	BR	RM_PRINT_ROW
 
 
 
@@ -242,7 +241,7 @@ FC_LP:
 DISPLAY_CANVAS:; |||||||||||||||||||||||||||||||||||||
 ; this subr has no AR and directly jumps back to the program cycle
 
-	;TOSUBR	RECREATE_MONITOR	;recreate hawk monitor
+	TOSUBR	RECREATE_MONITOR	;recreate hawk monitor
 	TOSUBR	CREATE_REG_MEM_WORDS
 	TOSUBR	FREE_CANVAS
 	TOSUBR	RECREATE_MEMORY		 ;recreate the mem 
