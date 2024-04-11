@@ -178,7 +178,7 @@ RESTORE_RETURN_ROW:
 	LIL	R3, EXECUTE_TEMPLATE	;the address that holds the template
 	LOADS	R3, R3	;loading the first line of the template into R5
 
-	LIL	R6, MEMD_RETURN	; MEMD_END, where the loop should be 
+	LIL	R6, MAIN_STOP	; MEMD_END, where the loop should be 
 
 	LOADS	R4, R6		;R8 contains current contents of command row
 	LIW	R5, #FFFF0000
@@ -195,7 +195,7 @@ ENDMAC
 ARSIZE=4
 RECREATE_REGISTERS:
 ; recreating the register, this subr does not end conventionally
-; it jumps directly to MEMD_RETURN, which then goes to program cycle
+; it jumps directly to MAIN_STOP, which then goes to program cycle
 	; set R6 to the row of MEMD
 	LIL	R1,REG_WORDS
 	LOAD_R R3
@@ -214,7 +214,7 @@ RECREATE_REGISTERS:
 
 	; loading the word to be displayed into R3
 	LOADCOM	R1,PROGRAM_CYCLE_AD
-	LIL	R2,MEMD_RETURN
+	LIL	R2,MAIN_STOP
 	JUMPS	R2
 
 ARSIZE = 4;|||||||||||||||||||||||||||||||||||||||

@@ -6,11 +6,15 @@ smal=~/maison/hawk/smal32 -P 45 -U ~/maison/hawk -L
 hawklink=~/maison/hawk/hawklink -m -o ripples ~/maison/hawk/monitor.o
 hawk=~/maison/graceful_hawk/hawk
 
+modules = move_objects.o canvas.o display.o draw_objects.o c.o
+
 ##########
 # primary make target
 
-whatever.o: main.o canvas.o display.o move_objects.o common.h
-	$(hawklink) main.o move_objects.o canvas.o display.o &&	$(hawk)	ripples.o
+whatever.o: main.o $(modules) common.h
+	$(hawklink) main.o $(modules)
+	$(hawk)	ripples.o
+
 
 ##########
 # other make targets
@@ -26,6 +30,11 @@ canvas.o: canvas.a common.h
 display.o: display.a common.h
 	$(smal) display.a
 
+c.o: c.a common.h
+	$(smal) c.a
+
+draw_objects.o: draw_objects.a common.h
+	$(smal) draw_objects.a
 ##########
 # Make utilities
 

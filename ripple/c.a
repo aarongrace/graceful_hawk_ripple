@@ -13,6 +13,8 @@ GENERATE_CIRCLE:
 	;uses RA=rad, RB=center_x,RC=center_y
 	;	RD=x,RE=y, RF=pointer to current entry in circle obj
 	;returns R3, pointer to circle object, which contains all coords
+	;	the first field of circle is its size
+	;	the circle array has x in lower 4 bits and y in higher 4 bits
 	C_S
 	
 	MOVE	RA,R3
@@ -25,6 +27,9 @@ GENERATE_CIRCLE:
 	TOSUBR	MALLOC
 	STORE	R3,R2,OBJ-ARSIZE
 	MOVE	RF,R3
+
+	; important: first field of the circle object should contain the size
+	ADDSI	RF,CIRCLE_ARRAY_START
 
 	LIS	RD,0	; x = 0
 	MOVE	RE,RA	; y = rad
@@ -85,6 +90,12 @@ GC_CHECK:
 	BR	GC_CHECK	;}
 GC_QUIT:	
 	LOAD	R3,R2,OBJ-ARSIZE
+
+	SUB	R4,RF,R3	
+	SR	R4,2
+	ADDSI	R4,-1	; discount the first field, used for size
+	STORES	R4,R3
+
 	R_S
 
 ARSIZE=4
@@ -100,7 +111,7 @@ GC_STORE_SUBR:
 	MOVE	R7,RE
 	R_S
 	
-
+END
 	INT	MAIN
 	S	GC_QUIT
 MAIN:

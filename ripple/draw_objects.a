@@ -1,0 +1,87 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+
+	EXT	DRAW_ON_CANVAS
+	EXT	GENERATE_CIRCLE
+
+
+	INT	DRAW_OBJECTS
+
+
+CIRCLE_ARRAY=4
+PX_LEFT=8
+CIRCLE_CHAR=16
+ARSIZE=20
+DRAW_CIRCLE:
+	; takes R3=rad,R4,center_x,R5=center_y,R6=char
+	C_S
+	STORE	R6,R2,CIRCLE_CHAR
+	TOSUBR	GENERATE_CIRCLE
+
+
+	LOADS	R4,R3
+	STORE	R4,R2,PX_LEFT
+	ADDSI	R3,4
+	STORE	R3,R2,CIRCLE_ARRAY
+
+	MOVE	R7,R3 ; R3 out of the way for param input
+DC_LP:
+	LOADS	R3,R7	; loading coord word into R3 and converting to two reg coords
+	TOSUBR	CONVERT_WORD_COORDS
+
+	LOAD	R3,R2,CIRCLE_CHAR ; loading circle char into R3
+	TOSUBR	DRAW_ON_CANVAS
+
+	LOAD	R7,R2,CIRCLE_ARRAY	; move to the next coord in array
+	ADDSI	R7,4
+	STORE	R7,R2,CIRCLE_ARRAY
+
+	LOAD	R6, R2, PX_LEFT ; px_left -= 1
+	ADDSI	R6,-1		; if (px_left == 0) return
+	STORE	R6,R2,PX_LEFT
+	TESTR	R6
+	BNE	DC_LP
+
+
+
+
+	R_S
+
+	S MAIN_STOP
+ARSIZE=4
+DRAW_OBJECTS:
+	C_S
+
+	LIS	R3,3
+	LIS	R4,12
+	LIS	R5,4
+	LIS	R6,#F
+	TOSUBR	DRAW_CIRCLE
+
+	LIL	R4, 14
+	LIS	R5,2
+	LIS	R3,#F
+
+	TOSUBR	DRAW_ON_CANVAS
+
+	R_S
+
+ARSIZE=0
+CONVERT_WORD_COORDS:
+	;takes R3, the word containing the coords
+	;returns R4=x,R5=y
+	MOVE	R4,R3
+	LIL	R6,#0000FFFF
+	AND	R4,R6
+
+	MOVE	R5,R3
+	SR	R5,16
+
+	JUMPS	R1	
+
+
+END
+
+	
