@@ -1,0 +1,163 @@
+	TITLE	"liststack.a by AARON WANG -- linked list stacks"
+	USE	"common.h"
+	USE	"hawk.h"
+	USE	"stdlib.h"
+
+; configuration constants
+; each stack object is a structure with 2 fields:
+; All instances of stack have the following fields:
+;LL_EMPTY	=	0	; pointer to the empty method, see stack.h
+;LL_PUSH	=	4	; pointer to the push method, see stack.h
+;LL_PEEK	=	8	; pointer to the pop method, see stack.h
+;LL_REMOVE	=	12	; pointer to the pop method, see stack.h
+
+; additional fields defined for liststack objects
+HEAD	=	16	; pointer to the head node
+OBJSIZE	=	20	; size of the stack obj
+
+; fields of the node (declared in common)
+;N_DATA	=	0	; data that the node holds
+;N_NEXT	=	4	; pointer to the next node
+;NODESIZE=	8	; each node holds data and the next pointer
+
+	INT	NEWLISTSTACK
+			; given nothing
+			; returns R3 -- pointer to a new list stack instance
+			; uses R4
+; AR for NEWLISTSTACK
+;RETAD	=	0
+ARSIZE	=	4
+NEWLISTSTACK:
+	STORES	R1,R2
+	ADDSI	R2,ARSIZE
+				; -- first, allocate a new stack object
+	LIS	R3,OBJSIZE	; -- parameter
+	LIL	R1,MALLOC
+	JSRS	R1,R1		; retval = malloc( objsize )
+
+				; -- second, initialize the new object
+				; -- start with the method pointers
+	LEA	R4,EMPTY
+	STORE	R4,R3,LL_EMPTY	; retval->empty = lsempty -- the empty method
+
+	LEA	R4,PUSH
+	STORE	R4,R3,LL_PUSH	; retval->push = lspush -- the push method
+
+	LEA	R4,REMOVE
+	STORE	R4,R3,LL_REMOVE	; retval->pop = lspop -- the pop method
+
+	LEA	R4,PEEK
+	STORE	R4,R3,LL_PEEK	; retval->pop = lspop -- the pop method
+
+				; -- finish by setting head to null
+	STORE	R0,R3,HEAD	; retval->head = null
+
+	ADDSI	R2,-ARSIZE
+	LOADS	PC,R2		; return retval
+
+
+;==========
+;		PEEK ; return the head
+PEEK:		; given   R3 -- s, the stack
+			; returns the head
+
+	LOAD	R3,R3,HEAD	; -- node * temp = s->head
+	JUMPS	R1		; return retval
+
+
+;==========
+;		EMPTY ; test to see if a stack is empty
+EMPTY:		; given   R3 -- s, a stack to test
+			; returns R3 -- zero if not empty, nonzero if empty
+
+	LOADCC	R0,R3,HEAD	; -- node * temp = s->head
+	LIS	R3,-1
+	BZS	E_IS_EMPTY
+	NOT	R3
+E_IS_EMPTY:			; retval = (temp == 0)
+	JUMPS	R1		; return retval
+
+
+;=========
+;		PUSH	; push a word onto the stack
+			; given   R3 -- stack pointer
+			;         R4 -- data to push
+			; returns nothing
+			; wipes	out R3-R6
+RETAD=0
+SP = 4
+NEW_NODE_DATA = 8
+ARSIZE = 12
+PUSH:
+	STORES	R1,R2
+	STORE	R3,R2,SP
+	STORE	R4,R2,NEW_NODE_DATA
+	ADDI	R2,R2,ARSIZE	; -- receiving sequence
+
+	LIL	R3,NODESIZE
+	LIL	R1,MALLOC
+	JSRS	R1,R1		; node * temp = (node *) malloc (node_size)
+
+	LOAD	R4,R2,NEW_NODE_DATA-ARSIZE
+	STORE	R4,R3,N_DATA	; temp->data = new_node_data
+
+;copying head into tail
+
+	LOAD	R5,R2,SP-ARSIZE
+	LOAD	R6,R5,HEAD
+	STORE	R6,R3,N_NEXT	; temp->next = stack-> head
+	STORE	R3,R5,HEAD	; stack->head = & temp
+
+	ADDI	R2,R2,-ARSIZE
+	LOADS	PC,R2		; -- return sequence
+
+
+;==========
+;		REMOVE	; pop a word from the stack
+			; given   R3 -- s, stack to push on
+			; 	  R4 -- data of the stack to remove
+			; returns 1 if sucessful otherwise 0
+			; wipes	out R4-R6
+ARSIZE=4
+REMOVE:
+	STORES	R1,R2
+	ADDSI	R2,ARSIZE	; -- receiving sequence
+
+	LOAD	R5,R3,HEAD	; node * temp = sp -> head
+	LOAD	R6,R5,N_DATA	; tempdata =  temp -> data
+	CMP	R4,R6
+	BNE	RM_CHECK
+RM_FIRST_FOUND:		; if the first node is to be removed
+	LOAD	R4,R5,N_NEXT	; get the next node into R4
+	STORE	R3,R4,HEAD	; store next node as the new head
+	MOVE	R3,R5		; set the old head up to be removed
+	BR	RM_FREE
+
+RM_CHECK:
+	LOAD	R5,R5,N_NEXT	; load next node into R5
+	MOVE	R7,R5		; node * prev = temp
+	LOAD	R6,R5,N_DATA	; retval =  temp -> data
+	TESTR	R6
+	BLE	RM_NOT_FOUND
+	CMP	R4,R6
+	BNE	RM_CHECK	
+
+	; now we found it
+	MOVE	R3,R5		; set R5 to be removed
+
+	LOAD	R5,R5,N_NEXT
+	STORE	R5,R7,N_NEXT	; prev->next = temp->next
+
+RM_FREE:
+	LIL	R1,FREE
+	MOVE	R3,R4
+	JSRS	R1,R1		; free (temp)
+
+	LIS	R3,1		; set returnval to sucess
+	R_S
+
+RM_NOT_FOUND:
+	LIS	R3,0		; did not found 
+	R_S
+	
+	END

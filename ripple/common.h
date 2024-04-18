@@ -6,12 +6,34 @@ DRAWABLE_VEL_Y = 12
 DRAWABLE_TEMPLATE = 16
 DRAWABLE_SIZE = 20
 
+
+;ripple object def
+RIPPLE_X = 0
+RIPPLE_Y = 4
+RIPPLE_RAD = 8
+RIPPLE_LIFE= 12
+RIPPLE_SIZE = 16
+
 	ALIGN	8
 
 	;address of the canvas, which should be MALLOCed
 	COMMON CANVAS,	4
+
+	COMMON	RIPPLE_OBJ, RIPPLE_SIZE
 	COMMON 	YOU_OBJ, DRAWABLE_SIZE
 	COMMON	BALL_OBJ, DRAWABLE_SIZE
+
+	COMMON	OBJ_LIST,4
+; configuration for the linked list
+LL_EMPTY	=	0	; pointer to the empty method, see stack.h
+LL_PUSH	=	4	; pointer to the push method, see stack.h
+LL_PEEK	=	8	; pointer to the pop method, see stack.h
+LL_REMOVE	=	12	; pointer to the pop method, see stack.h
+
+; fields of the node
+N_DATA	=	0	; data that the node holds
+N_NEXT	=	4	; pointer to the next node
+NODESIZE=	8	; each node holds data and the next pointer
 
 	;move_object
 	COMMON	FILL_S_FIRST_LETTER,4
@@ -19,17 +41,18 @@ DRAWABLE_SIZE = 20
 	COMMON	PROGRAM_CYCLE_AD, 4
 	COMMON	INIT_R2,4
 
+BYTES_IN_W = 4
 ; canvas parameters
 C_UPPER_ROWS = 8
+C_UPPER_COLUMNS = 3
+C_REG_COLUMNS = 2
 C_LOWER_ROWS = 8
+C_LOWER_DIGS = M_LEFT_W + M_MID_W + M_THIRD_W + M_RIGHT_W
 C_ROWS = C_UPPER_ROWS + C_LOWER_ROWS
 
-C_UPPER_COLS = 24
-C_LOWER_COLS = M_LEFT_W + M_MID_W + M_THIRD_W + M_RIGHT_W
+C_UPPER_DIGS = 24
 
-
-
-C_REG_BITS = 16
+C_REG_DIGS = 16
 
 M_LEFT_S = 22
 M_LEFT_W = 9
@@ -57,6 +80,22 @@ MACRO TOSUBR subr
 	LIL	R1,subr
 	JSRS	R1,R1
 ENDMAC
+
+MACRO TOSUBR_3 subr, =r3val
+	LIL	R3, r3val
+	TOSUBR	subr
+ENDMAC
+
+MACRO TOSUBR_34 subr, =r3val, =r4val
+	LIL	R4, r4val
+	TOSUBR_3	subr,r3val
+ENDMAC
+
+MACRO TOSUBR_345 subr, =r3val, =r4val, =r5val
+	LIL	R5, r5val
+	TOSUBR_34	subr, r3val, r4val
+ENDMAC
+
 
 MACRO LOADCOM reg, com
 ; loads the value of com into reg

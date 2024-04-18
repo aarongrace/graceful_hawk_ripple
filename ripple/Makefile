@@ -2,11 +2,11 @@
 # these definitions are lifted from the aliases in .bashrc
 # (If you try to use this makefile on a different system, you will need
 # to change the file names to where hawk and hawklink are installed there.)
-smal=~/maison/hawk/smal32 -P 45 -U ~/maison/hawk -L
+smal=~/maison/hawk/g_smal32 -P 45 -U ~/maison/hawk -L
 hawklink=~/maison/hawk/hawklink -m -o ripples ~/maison/hawk/monitor.o
 hawk=~/maison/graceful_hawk/hawk
 
-modules = move_objects.o canvas.o display.o draw_objects.o generate_circle.o
+modules = move_objects.o canvas.o display.o draw_objects.o generate_circle.o linkedlist.o
 
 ##########
 # primary make target
@@ -35,6 +35,9 @@ generate_circle.o: generate_circle.a common.h
 
 draw_objects.o: draw_objects.a common.h
 	$(smal) draw_objects.a
+
+linkedlist.o: linkedlist.a common.h
+	$(smal) linkedlist.a
 ##########
 # Make utilities
 

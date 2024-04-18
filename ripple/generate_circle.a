@@ -3,15 +3,18 @@
 	USE	"stdlib.h"
 	USE	"common.h"
 
-
+;	S	DEBUG
+	S	MAIN_STOP
 
 	INT	GENERATE_CIRCLE
 OBJ=4
-ARSIZE=8
+Y_CHANGED_WITHOUT_SAVING=8
+ARSIZE=12
 GENERATE_CIRCLE:
 	;takes R3=rad, R4=center_x,R5=center_y
 	;uses RA=rad, RB=center_x,RC=center_y
 	;	RD=x,RE=y, RF=pointer to current entry in circle obj
+	;	R5=control for decrementing y
 	;returns R3, pointer to circle object, which contains all coords
 	;	the first field of circle is its size
 	;	the circle array has x in lower 4 bits and y in higher 4 bits
@@ -21,9 +24,11 @@ GENERATE_CIRCLE:
 	MOVE	RB,R4
 	MOVE	RC,R5
 
-	; generate circle obj with size rad * 5 words
-	ADDSL	R3,R3,2
-	SL	R3,2
+	LIS	R5,0
+	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
+
+	; generate circle obj with size rad * 32 words
+	SL	R3,6
 	TOSUBR	MALLOC
 	STORE	R3,R2,OBJ-ARSIZE
 	MOVE	RF,R3
@@ -37,41 +42,73 @@ GENERATE_CIRCLE:
 	MOVE	R3,RA
 	MOVE	R4,RA
 	TOSUBR	TIMESU
-	MOVE	R8,R3	; save rad^2 in R8
+	MOVE	R8,R3	
+	ADDSI	R8, 1	; save rad^2 + 1in R8
 
 GC_WHILE:
 	; obj[curr] = y << 4 + x
-	MOVE	R6,RD
-	MOVE	R7,RE
+	MOVE	R6,RD		; x
+	MOVE	R7,RE		; y
 	
 UPPER_RIGHT:
-	ADD	R6,RB,R6	; x = center_x + x
-	ADD	R7,RC,R7	; y = center_y + y
+	ADD	R6,RB,RD	; x = center_x + x
+	ADD	R7,RC,RE	; y = center_y + y
+	TOSUBR	GC_STORE_SUBR
+
+	ADD	R6,RB,RE	; x = center_x + y
+	ADD	R7,RC,RD	; y = center_y + x
 	TOSUBR	GC_STORE_SUBR
 
 	TESTR	RD		; if x == 0, store only +y -y
+	TESTR	RD		; if x == 0, store only +y -y
 	BEQ	LOWER_LEFT
 UPPER_LEFT:
-	SUB	R6,RB,R6	; x = center_x - x
-	ADD	R7,RC,R7	; y = center_y + y
+	SUB	R6,RB,RD	; x = center_x - x
+	ADD	R7,RC,RE	; y = center_y + y
 	TOSUBR	GC_STORE_SUBR
+
+	SUB	R6,RB,RE	; x = center_x + y
+	ADD	R7,RC,RD	; y = center_y + x
+	TOSUBR	GC_STORE_SUBR
+	
 	
 	TESTR	RE		; if y == 0, store only +x -x
 	BEQ	GC_STORE_END
 LOWER_RIGHT:
-	ADD	R6,RB,R6	; x = center_x + x
-	SUB	R7,RC,R7	; y = center_y - y
+	ADD	R6,RB,RD	; x = center_x + x
+	SUB	R7,RC,RE	; y = center_y - y
 	TOSUBR	GC_STORE_SUBR
+
+	ADD	R6,RB,RE	; x = center_x + y
+	SUB	R7,RC,RD	; y = center_y + x
+	TOSUBR	GC_STORE_SUBR
+	
 
 LOWER_LEFT:
-	SUB	R6,RB,R6	; x = center_x - x
-	SUB	R7,RC,R7	; y = center_y - y
+	SUB	R6,RB,RD	; x = center_x - x
+	SUB	R7,RC,RE	; y = center_y - y
 	TOSUBR	GC_STORE_SUBR
+
+	SUB	R6,RB,RE	; x = center_x + y
+	SUB	R7,RC,RD	; y = center_y + x
+	TOSUBR	GC_STORE_SUBR
+	
+	
 GC_STORE_END:
 
+DEBUG:
+	LOAD	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
+	TESTR	R5
+	BZR	GC_JUST_DESCENDED
 	ADDSI	RD, 1	; x += 1
+	MOVE	R6,RD
+	SL	R6,1
 	CMP	RD,RA
-	BGT	GC_QUIT
+	BGE	GC_QUIT
+
+GC_JUST_DESCENDED:
+	LIS	R5,0	; reset the control variable
+	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
 GC_CHECK:
 	; check x^2 + y^2 > rad ^2
 	MOVE	R3,RD
@@ -82,11 +119,17 @@ GC_CHECK:
 	MOVE	R3,RE
 	MOVE	R4,RE
 	TOSUBR	TIMESU
+;	SL	R3,1	; uncomment to add add spikes
 	ADD	R7,R7,R3 ; save x^2 + y^2 in R7
 
 	CMP	R7,R8	; if !(x^2 + y^2 > rad ^2){
 	BLE	GC_WHILE
 	ADDSI	RE,-1	; y -= 1
+	LOAD	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
+	TESTR	R5
+	BZR	GC_WHILE
+	LIS	R5,1	; R5 is the flag for having decremented 
+	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
 	BR	GC_CHECK	;}
 GC_QUIT:	
 	LOAD	R3,R2,OBJ-ARSIZE
@@ -107,8 +150,6 @@ GC_STORE_SUBR:
 	OR	R6,R7
 	STORES	R6,RF
 	ADDSI	RF,4
-	MOVE	R6,RD
-	MOVE	R7,RE
 	R_S
 	
 END

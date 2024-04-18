@@ -15,43 +15,84 @@ CANVAS_SIZE = 1792
 
 
 	INT	INIT_CANVAS
-ARSIZE=4 ;||||||||||||||||||||||||||||||||||||||||||||||
+ARSIZE=8 ;||||||||||||||||||||||||||||||||||||||||||||||
 INIT_CANVAS:
 	C_S
+
+	TOSUBR	FREE_CANVAS	; free the previous canvas
 
 	; each number on the canvas is a bit
 	; though it is more storage efficient to use words
 	; it is much easier to manipulate this way
 
 	; the canvas is a two-dimensional array with varying lengths
-	LIL	R3,C_ROWS
-	SL	R3,2
-	TOSUBR	MALLOC
+
+	TOSUBR_3	MALLOC, C_ROWS * BYTES_IN_W
 	SETCOM	R4,R3,CANVAS
-	
-	MOVE	RA,R3	;RA is used as pointer to canvas obj
+
+	MOVE	RA,R3	;RA is used as pointer to curr canvas row
 	LIS	R8,0	; R8=curr_row
-	LIL	R9,C_UPPER_COLS ;R9 = cols to allocate
-	SL	R9,2
-IC_LOOP:
-	MOVE	R3,R9	;allocate cols*4 bytes
-	TOSUBR	MALLOC
+
+;initializing the upper portion
+IC_UPPER_LP:		; allocating 3 words for each of the upper rows
+	TOSUBR_3	MALLOC,C_UPPER_COLUMNS * BYTES_IN_W
+	STORES	R3,RA	; create new row and add it
+
+	ADDSI	RA,BYTES_IN_W	; incrementing variables
+	ADDSI	R8,1
+	CMPI	R8,C_UPPER_ROWS
+	BLT	IC_UPPER_LP
+		
+	LIS	R8,0	; R8=curr_row
+IC_LOWER_LOOP:
+	TOSUBR_3	MALLOC,C_LOWER_DIGS * BYTES_IN_W ;R9 = cols to allocate
 	STORES	R3,RA	; store the pointer to the row
 
+	ADDSI	RA,BYTES_IN_W	; incrementing variables
 	ADDSI	R8,1
-	; if R8 is 8, switch to col numbers for monitor
-	CMPI	R8,8
-	BNE	IC_NOT_8
-	LIL	R9,C_LOWER_COLS
-	SL	R9,2
-IC_NOT_8:
-	ADDSI	RA,4
-	CMPI	R8,C_ROWS
-	BLT	IC_LOOP
+	CMPI	R8,C_LOWER_ROWS
+	BNE	IC_LOWER_LOOP
 
-	TOSUBR	FILL_CANVAS_S
+;	TOSUBR	TEST_DRAW
+	;TOSUBR	FILL_CANVAS_S
 	R_S
 
+;	S	DEBUG
+
+ARSIZE=4
+TEST_DRAW:
+	C_S
+	TOSUBR_345 DRAW_ON_CANVAS,#F,13,5
+	TOSUBR_345 DRAW_ON_CANVAS,#E,12,4
+	TOSUBR_345 DRAW_ON_CANVAS,#D,11,3
+
+	TOSUBR_345 DRAW_ON_CANVAS,#A,-11,5
+	TOSUBR_345 DRAW_ON_CANVAS,#B,-17,1
+	TOSUBR_345 DRAW_ON_CANVAS,#1,-18,2
+	TOSUBR_345 DRAW_ON_CANVAS,#2,-19,3
+	TOSUBR_345 DRAW_ON_CANVAS,#3,-20,4
+	TOSUBR_345 DRAW_ON_CANVAS,#4,-21,5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-24,4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-25,3
+	TOSUBR_345 DRAW_ON_CANVAS,#C,-7,3
+	TOSUBR_345 DRAW_ON_CANVAS,#D,-6,4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-5,5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-4,6
+
+	TOSUBR_345 DRAW_ON_CANVAS,#F,13,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#E,12,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#D,11,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#A,-11,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#B,-17,-1
+	TOSUBR_345 DRAW_ON_CANVAS,#1,-18,-2
+	TOSUBR_345 DRAW_ON_CANVAS,#2,-19,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#3,-20,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#4,-21,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#C,-7,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#D,-6,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-5,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-4,-6
+	R_S
 
 	INT	DRAW_ON_CANVAS
 ARSIZE=4
@@ -66,104 +107,288 @@ DRAW_ON_CANVAS:
 	TOSUBR	DRAW_ON_MEMORY
 
 DCANVAS_REGISTER:
-	TOSUBR	TO_REGISTER_COORDS
+	TOSUBR	DRAW_ON_REGISTER
 
 DCANVAS_MONITOR:
-	TOSUBR	TO_MONITOR_COORDS
+	TOSUBR	DRAW_ON_MONITOR
 DCANVAS_RETURN:
 	R_S
 
 	
+
 MEMORY_ADD_W=8
-MEMORY_BITS=8
+MEMORY_DIGS=8
 ARSIZE=4
 DRAW_ON_MEMORY:
 	; takes R3=hex to draw, R4=x,R5=y
 
+	CMPI	R5, C_UPPER_ROWS
+	BGE	DOR_QT		; quit if y >= 8
+
 	CMPI	R4, MEMORY_ADD_W	; if (x < memory_add_w) return
 	BLT	DMEM_RETURN
 
-	CMPI	R4, MEMORY_ADD_W + MEMORY_BITS
+	CMPI	R4, MEMORY_ADD_W + MEMORY_DIGS
 	BGE	DMEM_RETURN
 
-	ADDSI	R5,-C_UPPER_ROWS	; y = 8 -y
+	ADDSI	R5,1-C_UPPER_ROWS	; y = 7 -y
 	NEG	R5,R5
 	SL	R5,2
-
-
-	LOADCOM	R7,CANVAS	; the the right row into R7
+	LOADCOM	R7,CANVAS	; loads canvas obj
 	ADD	R7,R7,R5
-	LOADS	R7,R7
+	LOADS	R7,R7		; load canvas row
+	ADDI	R7, R7, C_REG_COLUMNS * BYTES_IN_W; get word for mem in row
 
-	ADDI	R4,R4,-MEMORY_ADD_W+C_REG_BITS
-	SL	R4,2
-	ADD	R7,R7,R4
-	
-	STORES	R3,R7
+	ADDI	R4, R4,-15 	; convert absolute x coord to pos in word	
+	NEG	R4,R4 ; the equation is essentially x = x -8; x = 7-x
+	TOSUBR	SET_DIG_IN_WORD
 
 DMEM_RETURN:
 	BR	DCANVAS_RETURN
 
 
-ARSIZE=4
-TO_REGISTER_COORDS:
-	; takes R3=hex to draw, R4=x,R5=y
-	BR	DCANVAS_RETURN
 
-
-ARSIZE=4
-TO_MONITOR_COORDS:
-	; takes R3=hex to draw, R4=x,R5=y
-	BR	DCANVAS_RETURN
-
-
-ARSIZE=4  ;|||||||||||||||||||||||||||||||||||||||||||||
-FILL_CANVAS_S:
-	; set a word in the canvas array
+AR_CHAR=4
+ARSIZE=8
+SET_DIG_IN_WORD: ;||||||||||||||||||||||||||||||||||||||||
+	;	takes R3=char,R4=pos in byte starting to the right from 0,R7=address of word
+	;	returns nothing
+	STORE	R3,R2,AR_CHAR
 	C_S
-	LOADCOM	RF,CANVAS
-	LOADCOM	R3,FILL_S_FIRST_LETTER
-
-;---------------------------------rows loop
-	LIS	R8,0	; R8=curr_row
-	LIL	R9,C_UPPER_COLS ;R9 = cols to fill
-FCS_ROWS_LOOP:
-	LOADS	RA,RF	;RA is used as pointer to canvas row
-;------------------one row loop
-	LIS	R7,0	; R7=curr_col
-	LIS	R5,0	; R5=control for break rhthm
-FCS_FILL_EACH_COLUMN:
-	STORES	R3,RA	; store the char to the col
-
-	ADDSI	R3,1 ;increment the char
-	CMPI	R3,15
-	BLE	FCS_R3_NOT_15
-	TESTR	R5	; if R5 is 1, set R3 to 0 instead of 1 to break the rhythm
-	BEQ	FCS_R5_0
-	LIS	R5,0
-	LIS	R3,15
-	BR	FCS_R3_NOT_15
-FCS_R5_0:
-	LIS	R5,1
-	LIS	R3,0
-
-FCS_R3_NOT_15:
-	ADDSI	R7,1
-	ADDSI	RA,4
-	CMP	R7,R9
-	BLT	FCS_FILL_EACH_COLUMN
-;----------------
-	ADDSI	R8,1 
-
-	CMPI	R8,8	 ; if R8 is 8, switch to col numbers for monitor
-	BNE	FCS_NOT_8
-	LIL	R9,C_LOWER_COLS
-
-FCS_NOT_8:
-	ADDSI	RF,4	; moving to next row
-	CMPI	R8,C_ROWS
-	BLT	FCS_ROWS_LOOP
+	; first step, get byte pos into R4, is_odd into R5
+	LIS	R5,#1
+	AND	R5,R4
+	SR	R4,1
+	; get the word
+	LOADS	R6,R7
+	
+	EXTB	R3,R6,R4
+	TESTR	R5
+	BZS	SDIW_IS_EVEN
+	;the digit to change is at at odd position, 
+		;which is to say second number in the byte
+	LIL	R5,#0F
+	AND	R3,R5	;get the first digit of the byte
+	LOAD	R5,R2,AR_CHAR-ARSIZE
+	SL	R5,BYTES_IN_W
+	OR	R3,R5
+	BR	SDIW_QUIT
+SDIW_IS_EVEN:
+	LIL	R5,#F0
+	AND	R3,R5
+	LOAD	R5,R2,AR_CHAR-ARSIZE
+	OR	R3,R5
+SDIW_QUIT:
+	STUFFB	R6,R3,R4
+	STORES	R6,R7
 	R_S
+
+	
+
+
+REG_RIGHT_COL_START = -4
+REG_RIGHT_COL_END = -11
+REG_LEFT_COL_START = -18
+REG_LEFT_COL_END = -25
+ARSIZE=4 
+DRAW_ON_REGISTER: ;||||||||||||||||||||||||||||||||||||||||
+	; takes R3=hex to draw, R4=x,R5=y
+	CMPI	R5, C_UPPER_ROWS
+	BGE	DOR_QT		; quit if y >= 8
+
+
+	; check for left column first
+	CMPI	R4,REG_LEFT_COL_END
+	BLT	DOR_QT		; quit if x < -25
+
+	CMPI	R4,REG_LEFT_COL_START
+	BLE	DOR_LEFT_COLUMN	; to first column if x <= -18
+
+	; then check for right column
+	CMPI	R4,REG_RIGHT_COL_END
+	BLT	DOR_QT		; quit if x < -11
+
+	CMPI	R4,REG_RIGHT_COL_START
+	BLE	DOR_RIGHT_COLUMN	; to right column if x <= -4
+	BR	DOR_QT		; quit if x > -4
+DOR_LEFT_COLUMN:
+	NEG	R4,R4	
+	ADDI	R4,R4,REG_LEFT_COL_START	; x = -x - 17
+	LIS	R6,0	; get the left column
+	BR	DOR_PREPARE_FOR_SET_DIG
+DOR_RIGHT_COLUMN:
+	ADDI	R4,R4,4
+	NEG	R4,R4	; x = -x -4
+	LIS	R6,BYTES_IN_W	; get the right column
+	BR	DOR_PREPARE_FOR_SET_DIG	
+
+DOR_PREPARE_FOR_SET_DIG:	; set params for SET_DIG_IN_WORD
+	ADDSI	R5,1-C_UPPER_ROWS	; y = 7 -y
+	NEG	R5,R5
+	SL	R5,2
+	LOADCOM	R7,CANVAS	; loads canvas obj
+	ADD	R7,R7,R5
+	LOADS	R7,R7		; load canvas row
+	ADD	R7,R7,R6  ; get word for the right reg column
+
+	TOSUBR	SET_DIG_IN_WORD
+DOR_QT:
+	BR	DCANVAS_RETURN
+
+
+;the left most digit of each column, counting from the left
+SECOND_COL_L = M_LEFT_W	; should be 9
+THIRD_COL_L = SECOND_COL_L + M_MID_W	;19
+FOURTH_COL_L = THIRD_COL_L + M_THIRD_W	; 27
+GAP1 = M_MID_S - M_LEFT_S - M_LEFT_W ; 3
+GAP2 = M_THIRD_S - M_MID_S - M_MID_W	; 2
+GAP3 = M_RIGHT_S - M_THIRD_S - M_THIRD_W ; 1
+M_START_Y = 4
+ARSIZE=4
+MONITOR_DIGITS_LEFT_OF_AXIS=25
+DRAW_ON_MONITOR: ;||||||||||||||||||||||||||||||||||||||||
+	; takes R3=hex to draw, R4=x,R5=y
+	; to convert the coordinates, first add 24
+	ADDI	R4,R4,MONITOR_DIGITS_LEFT_OF_AXIS
+
+DEBUG:
+;----------prepare y
+	NEG	R5,R5	; invert R5 first
+	ADDSI	R5,-M_START_Y	; subtract the gap from it
+	TESTR	R5
+	BLT	DMON_QT	; quit if y is less than 0
+
+	CMPI	R5,C_LOWER_ROWS
+	BGE	DMON_QT	; quit if y is more or equal to 8
+
+
+;----------prepare x
+	TESTR	R4
+	BLT	DMON_QT	; quit if x less than 0
+	
+	CMPI	R4,MONITOR_DIGITS_LEFT_OF_AXIS + 16
+	BGE	DMON_QT	; quit if x more than 40
+	
+	; first column
+	CMPI	R4,SECOND_COL_L
+	BLT	DMON_X_READY	; if x is in the first column
+	
+	CMPI	R4,SECOND_COL_L + GAP1 ; 9 + 3 = 12 
+	BLT	DMON_QT	; if x falls between the gap
+	ADDSI	R4,-GAP1
+
+	; second column
+	CMPI	R4,THIRD_COL_L	; 19
+	BLT	DMON_X_READY	; if x is in the second column
+	
+	CMPI	R4,THIRD_COL_L + GAP2 ; 19 + 2 = 21
+	BLT	DMON_QT	; if x falls between the second gap
+	ADDSI	R4,-GAP2	; -2
+
+
+	; third column
+	CMPI	R4,FOURTH_COL_L	; 27
+	BLT	DMON_X_READY	; if x is in the third column
+	
+	CMPI	R4,FOURTH_COL_L + GAP3 ; 27 + 1 = 28
+	BLT	DMON_QT	; if x falls between the third gap
+	ADDSI	R4,-GAP3
+
+
+	; fourth column
+	CMPI	R4,C_LOWER_DIGS; 35
+	BLT	DMON_X_READY	; if x is in the fourth column
+	BR	DMON_QT		; to catch exceptions
+DMON_X_READY:
+;------both y and x are prepared
+;DEBUG:
+	ADDI	R5,R5,C_UPPER_ROWS
+	SL	R5,2 ; change (y+8) into number of bytes 
+	LOADCOM	R7,CANVAS
+	ADD	R7,R7,R5	; get the right canvas row pointer
+	LOADS	R7,R7		; get the canvas row
+
+	SL	R4,2	; 
+	ADD	R7,R7,R4
+	STORES	R3,R7		; store the char into the digit on the row
+
+DMON_QT:
+	LIL	R1,DCANVAS_RETURN
+	JUMPS	R1
+
+ARSIZE = 4;|||||||||||||||||||||||||||||||||||||||
+FREE_CANVAS: 
+;after changing the canvas into words, there is no need to move them
+	C_S
+	LOADCOM	R8,CANVAS
+		
+	TESTR	R8	; quit if canvas is null (first time run)
+	BZS	FC_QT
+
+	LIS	R9,0
+FC_LP:
+	LOADS	R3,R8
+	TOSUBR	FREE
+	ADDSI	R8,4
+
+	ADDSI	R9,1
+	CMPI	R9,C_ROWS
+	BLT	FC_LP
+
+	LOADCOM	R3,CANVAS
+	TOSUBR	FREE
+
+FC_QT:
+	R_S
+
+
+;ARSIZE=4  ;|||||||||||||||||||||||||||||||||||||||||||||
+;FILL_CANVAS_S:
+;	; set a word in the canvas array
+;	C_S
+;	LOADCOM	RF,CANVAS
+;	LOADCOM	R3,FILL_S_FIRST_LETTER
+;
+;;---------------------------------rows loop
+;	LIS	R8,0	; R8=curr_row
+;	LIL	R9,C_UPPER_COLS ;R9 = cols to fill
+;FCS_ROWS_LOOP:
+;	LOADS	RA,RF	;RA is used as pointer to canvas row
+;;------------------one row loop
+;	LIS	R7,0	; R7=curr_col
+;	LIS	R5,0	; R5=control for break rhthm
+;FCS_FILL_EACH_COLUMN:
+;	STORES	R3,RA	; store the char to the col
+;
+;	ADDSI	R3,1 ;increment the char
+;	CMPI	R3,15
+;	BLE	FCS_R3_NOT_15
+;	TESTR	R5	; if R5 is 1, set R3 to 0 instead of 1 to break the rhythm
+;	BEQ	FCS_R5_0
+;	LIS	R5,0
+;	LIS	R3,15
+;	BR	FCS_R3_NOT_15
+;FCS_R5_0:
+;	LIS	R5,1
+;	LIS	R3,0
+;
+;FCS_R3_NOT_15:
+;	ADDSI	R7,1
+;	ADDSI	RA,4 ;	CMP	R7,R9
+;	BLT	FCS_FILL_EACH_COLUMN
+;;----------------
+;	ADDSI	R8,1 
+;
+;	CMPI	R8,8	 ; if R8 is 8, switch to col numbers for monitor
+;	BNE	FCS_NOT_8
+;	LIL	R9,C_LOWER_COLS
+;
+;FCS_NOT_8:
+;	ADDSI	RF,4	; moving to next row
+;	CMPI	R8,C_ROWS
+;	BLT	FCS_ROWS_LOOP
+;	R_S
+
 END
 ;-----------------------------------for testing
 	INT MAIN
