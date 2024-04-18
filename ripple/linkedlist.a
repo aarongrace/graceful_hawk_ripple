@@ -20,14 +20,14 @@ OBJSIZE	=	20	; size of the stack obj
 ;N_NEXT	=	4	; pointer to the next node
 ;NODESIZE=	8	; each node holds data and the next pointer
 
-	INT	NEWLISTSTACK
+	INT	NEWLINKEDLIST
 			; given nothing
 			; returns R3 -- pointer to a new list stack instance
 			; uses R4
-; AR for NEWLISTSTACK
+; AR for NEWLINKEDLIST
 ;RETAD	=	0
 ARSIZE	=	4
-NEWLISTSTACK:
+NEWLINKEDLIST:
 	STORES	R1,R2
 	ADDSI	R2,ARSIZE
 				; -- first, allocate a new stack object

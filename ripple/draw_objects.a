@@ -5,6 +5,8 @@
 
 	EXT	DRAW_ON_CANVAS
 	EXT	GENERATE_CIRCLE
+	EXT	CREATE_OBJECTS
+	EXT	NEWLINKEDLIST
 
 
 
@@ -75,7 +77,26 @@ DO_R6_NOT_ZERO:
 	STORE	R6,R7,RIPPLE_LIFE
 
 	R_S
-
+	INT 	INITIALIZE_OBJ_LIST
+ARSIZE=4
+INITIALIZE_OBJ_LIST:
+	TOSUBR	NEWLINKEDLIST
+	SETCOM	R4,R3,OBJ_LIST
+;TODO	add ripple constructor and refactor how ripples are drawn
+;TODO	test obj_list functions, particularly remove
+;TODO	implement function to iterate through objects and draw them
+	
+;	LIL	R3,RIPPLE_OBJ 
+;	LIL	R4,-7
+;	STORE	R4,R3,RIPPLE_X
+;	LIL	R4,-10
+;	STORE	R4,R3,RIPPLE_Y
+;	LIL	R4,3
+;	STORE	R4,R3,RIPPLE_RAD
+;	LIL	R4,#F
+;	STORE	R4,R3,RIPPLE_LIFE
+;		
+;
 ARSIZE=0
 CONVERT_WORD_COORDS:
 	;takes R3, the word containing the coords
