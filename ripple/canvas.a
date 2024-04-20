@@ -2,7 +2,8 @@
 	USE	"stdio.h"
 	USE	"stdlib.h"
 	USE	"common.h"
-
+; TODO	change canvas to a static common object
+; TODO	add decay function so that ripples leave a trace behind them, a right shift would do
 ; canvas object
 ; all funcs in this Module use RF for address of the canvas
 

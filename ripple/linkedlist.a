@@ -31,7 +31,7 @@ NEWLINKEDLIST:
 	STORES	R1,R2
 	ADDSI	R2,ARSIZE
 				; -- first, allocate a new stack object
-	LIS	R3,OBJSIZE	; -- parameter
+	LIL	R3,OBJSIZE	; -- parameter
 	LIL	R1,MALLOC
 	JSRS	R1,R1		; retval = malloc( objsize )
 

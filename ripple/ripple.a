@@ -1,0 +1,91 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+
+;MACRO SET_FIELD_TO_RAND	reg, field, =max
+;	LIL	R4,max
+;	TOSUBR	GET_RANDOM_NUMBER
+;	STORE	R3,reg,field
+;ENDMAC
+;|||||||||||||||||||||||||||||||||||||||||||||||||||||
+	INT	DEBUG
+	INT	RIPPLE_CONSTRUCTOR
+ARSIZE=4
+RIPPLE_CONSTRUCTOR:
+	C_S
+	
+	TOSUBR_3 MALLOC, RIPPLE_SIZE
+	MOVE	R8,R3	; use R8 as the holder for the new ripple obj
+	
+DEBUG:
+	TOSUBR	RAND
+	LIL	R4,#1F
+	AND	R3,R4	; get rand(0,31)
+	ADDI	R3,R3,-20	; get rand(-20,11)
+	STORE	R3,R8,RIPPLE_X
+
+	TOSUBR	RAND
+	LIL	R4,#F
+	AND	R3,R4	; get rand(0,15)
+	ADDI	R3,R3,-9	; get rand(-9,7)
+	STORE	R3,R8,RIPPLE_Y
+
+	LIS	R3,1
+	STORE	R3,R8,RIPPLE_RAD
+
+	LIS	R3,3
+	STORE	R3,R8,RIPPLE_WIDTH
+
+	TOSUBR	RAND
+	LIL	R4,#F
+	AND	R3,R4
+	LIL	R4,#2
+	OR	R3,R4	; get rand(2,15)
+	STORE	R3,R8,RIPPLE_LIFE
+
+	MOVE	R3,R8
+	R_S
+
+
+;|||||||||||||||||||||||||||||||||||||||||||||||||||||
+	EXT	DRAW_CIRCLE
+	INT	DRAW_RIPPLE
+RIP_POINTER=4
+ARSIZE=8
+DRAW_RIPPLE:
+	; takes R3, address of the ripple
+	C_S
+	STORE	R3,R2,RIP_POINTER-ARSIZE
+	MOVE	R7,R3
+	LOAD	R3,R7,RIPPLE_RAD
+	LOAD	R4,R7,RIPPLE_X
+	LOAD	R5,R7,RIPPLE_Y
+	LOAD	R6,R7,RIPPLE_LIFE
+	; takes R3=rad,R4,center_x,R5=center_y,R6=char
+	TOSUBR	DRAW_CIRCLE
+	LOAD	R7,R2,RIP_POINTER-ARSIZE
+	LOAD	R3,R7,RIPPLE_RAD
+	LOAD	R6,R7,RIPPLE_LIFE
+	ADDSI	R3,1
+	ADDSI	R6,-1
+	TESTR	R6
+	BZR	LIFE_NOT_ZERO
+	;TODO add garbage collector
+	LIL	R6,#F
+LIFE_NOT_ZERO:
+	STORE	R3,R7,RIPPLE_RAD
+	STORE	R6,R7,RIPPLE_LIFE
+	R_S
+
+
+;ARSIZE=4
+;GET_RANDOM_NUMBER:
+;	; takes R4, max
+;	; returns R3, random number
+;	C_S
+;	TOSUBR	RAND
+;	CMPI	R3,14
+;	ADDSI	R3,-1
+;	R_S
+;

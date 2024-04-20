@@ -7,13 +7,6 @@ DRAWABLE_TEMPLATE = 16
 DRAWABLE_SIZE = 20
 
 
-;ripple object def
-RIPPLE_X = 0
-RIPPLE_Y = 4
-RIPPLE_RAD = 8
-RIPPLE_LIFE= 12
-RIPPLE_SIZE = 16
-
 	ALIGN	8
 
 	;address of the canvas, which should be MALLOCed
@@ -64,6 +57,13 @@ M_RIGHT_S = 55
 M_RIGHT_W = 8
 
 ;attributes of the object
+RIPPLE_X=0
+RIPPLE_Y=4
+RIPPLE_RAD=8
+RIPPLE_WIDTH=12
+RIPPLE_LIFE=16
+RIPPLE_SIZE=20
+
 CIRCLE_SIZE_FIELD = 0
 CIRCLE_ARRAY_START = 4
 
