@@ -165,14 +165,12 @@ WORD_INCREMENT=4
 	JUMPS	R2
 
 	INT	DISPLAY_CANVAS
-;	S	DEBUG
 DISPLAY_CANVAS:; |||||||||||||||||||||||||||||||||||||
 ; this subr has no AR and directly jumps back to the program cycle
 
 	TOSUBR	RECREATE_MONITOR	;recreate hawk monitor
 
 	TOSUBR	RECREATE_MEMORY		 ;recreate the mem 
-DEBUG:
 	TOSUBR	RECREATE_REGISTERS	 ;recreate the reg
 
 	END

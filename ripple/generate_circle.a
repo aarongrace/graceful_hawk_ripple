@@ -7,15 +7,14 @@
 	
 
 	INT	GENERATE_CIRCLE
-OBJ=4
-Y_CHANGED_WITHOUT_SAVING=8
-ARSIZE=12
+Y_CHANGED_WITHOUT_SAVING=4
+ARSIZE=8
 GENERATE_CIRCLE:
 	;takes R3=rad, R4=center_x,R5=center_y
 	;uses RA=rad, RB=center_x,RC=center_y
 	;	RD=x,RE=y, RF=pointer to current entry in circle obj
 	;	R5=control for decrementing y
-	;returns R3, pointer to circle object, which contains all coords
+	;returns nothing, but changes circle object, which contains all coords
 	;	the first field of circle is its size
 	;	the circle array has x in lower 4 bits and y in higher 4 bits
 	C_S
@@ -28,11 +27,7 @@ GENERATE_CIRCLE:
 	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
 
 	; generate circle obj with size rad * 32 words
-	SL	R3,6
-	TOSUBR	MALLOC
-	STORE	R3,R2,OBJ-ARSIZE
-	MOVE	RF,R3
-
+	LIL	RF,CIRCLE
 	; important: first field of the circle object should contain the size
 	ADDSI	RF,CIRCLE_ARRAY_START
 
@@ -132,7 +127,7 @@ GC_CHECK:
 	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
 	BR	GC_CHECK	;}
 GC_QUIT:	
-	LOAD	R3,R2,OBJ-ARSIZE
+	LIL	R3,CIRCLE
 
 	SUB	R4,RF,R3	
 	SR	R4,2
@@ -158,16 +153,14 @@ GC_STORE_SUBR:
 CIRCLE_ARRAY=4
 PX_LEFT=8
 CIRCLE_CHAR=16
-CIRCLE_POINTER=20
-ARSIZE=24
+ARSIZE=20
 DRAW_CIRCLE:
 	; takes R3=rad,R4,center_x,R5=center_y,R6=char
 	C_S
 	STORE	R6,R2,CIRCLE_CHAR-ARSIZE
 	TOSUBR	GENERATE_CIRCLE
-	STORE	R3,R2,CIRCLE_POINTER-ARSIZE
 
-
+	LIL	R3,CIRCLE
 	LOADS	R4,R3
 	STORE	R4,R2,PX_LEFT-ARSIZE
 	ADDSI	R3,4
@@ -191,8 +184,6 @@ DC_LP:
 	TESTR	R6
 	BNE	DC_LP
 
-	LOAD	R3,R2,CIRCLE_POINTER-ARSIZE
-	TOSUBR	FREE
 	R_S
 	
 ARSIZE=0

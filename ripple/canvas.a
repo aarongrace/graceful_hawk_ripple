@@ -100,39 +100,59 @@ DMEM_RETURN:
 	BR	DCANVAS_RETURN
 
 
+;	INT	DEBUG
 
 AR_CHAR=4
-ARSIZE=8
+OTHER_DIGIT=8
+ARSIZE=12
 SET_DIG_IN_WORD: ;||||||||||||||||||||||||||||||||||||||||
 ;takes R3=char,R4=pos in byte starting to the right from 0,R7=address of word
 ;returns nothing
 	STORE	R3,R2,AR_CHAR
 	C_S
 	; first step, get byte pos into R4, is_odd into R5
+	MOVE	R8,R4	; move the byte pos to R7
 	LIS	R5,#1
-	AND	R5,R4
-	SR	R4,1
+	AND	R5,R8
+	SR	R8,1
 	; get the word
 	LOADS	R6,R7
-	
-	EXTB	R3,R6,R4
+	EXTB	R3,R6,R8
+	; determine parity
 	TESTR	R5
 	BZS	SDIW_IS_EVEN
 	;the digit to change is at at odd position, 
 		;which is to say second number in the byte
 	LIL	R5,#0F
-	AND	R3,R5	;get the first digit of the byte
-	LOAD	R5,R2,AR_CHAR-ARSIZE
-	SL	R5,BYTES_IN_W
+	AND	R5,R3	;get the first digit of the byte
+	STORE	R5,R2,OTHER_DIGIT
+
+	LIL	R4,#F0
+	AND	R4,R3	;get the original digit
+	SR	R4,BYTES_IN_W	;shift it to the right	
+	LOAD	R3,R2,AR_CHAR-ARSIZE
+	TOSUBR	OVERLAP_NUMBERS
+
+	SL	R3,BYTES_IN_W
+	LOAD	R5,R2,OTHER_DIGIT
 	OR	R3,R5
 	BR	SDIW_QUIT
 SDIW_IS_EVEN:
+	;the digit to change is at at even position, 
+		;which is to say first number in the byte
 	LIL	R5,#F0
-	AND	R3,R5
-	LOAD	R5,R2,AR_CHAR-ARSIZE
+	AND	R5,R3
+	STORE	R5,R2,OTHER_DIGIT
+
+	LIL	R4,#0F
+	AND	R4,R3	;get the original digit
+	LOAD	R3,R2,AR_CHAR-ARSIZE
+	TOSUBR	OVERLAP_NUMBERS
+
+	LOAD	R5,R2,OTHER_DIGIT
 	OR	R3,R5
 SDIW_QUIT:
-	STUFFB	R6,R3,R4
+	STUFFB	R6,R3,R8
 	STORES	R6,R7
 	R_S
 
@@ -261,11 +281,45 @@ DMON_X_READY:
 
 	SL	R4,2	; 
 	ADD	R7,R7,R4
+	
+	LOADS	R4,R7
+	
+	TOSUBR	OVERLAP_NUMBERS
+
 	STORES	R3,R7		; store the char into the digit on the row
 
 DMON_QT:
 	LIL	R1,DCANVAS_RETURN
 	JUMPS	R1
+
+
+ARSIZE=4
+OVERLAP_NUMBERS:
+	;takes R3,R4 
+	;wipes out R5,R6
+	;returns R3
+	TESTR	R4	; if R4 is 0 return
+	BZS	ON_QT	 ; no need to check R3, because it shouldn't be zero
+
+	CMP	R3,R4
+	BGT	ON_R3_BIGGER
+	MOVE	R5,R3
+	MOVE	R3,R4
+	MOVE	R4,R5	; exchange numbers so that R3 is bigger
+ON_R3_BIGGER:
+
+	CMPI	R4,1
+	BEQ	ON_R4_IS_1
+	SR	R4,1
+ON_R4_IS_1:		; leave R4 be if it's 1
+
+	ADD	R3,R3,R4
+	CMPI	R3,#F
+	BLE	ON_QT
+	LIL	R3,#F
+ON_QT:
+	JUMPS	R1
+
 
 ARSIZE=4  ;|||||||||||||||||||||||||||||||||||||||||||||
 	INT	LOWER_CANVAS_VALUES

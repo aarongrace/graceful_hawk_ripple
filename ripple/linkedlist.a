@@ -77,7 +77,6 @@ EMPTY:		; given   R3 -- s, a stack to test
 E_IS_EMPTY:			; retval = (temp == 0)
 	JUMPS	R1		; return retval
 
-	INT	DEBUG
 ;=========
 ;		PUSH	; push a word onto the stack
 			; given   R3 -- stack pointer
@@ -98,7 +97,6 @@ PUSH:
 	LIL	R1,MALLOC
 	JSRS	R1,R1		; node * temp = (node *) malloc (node_size)
 
-DEBUG:
 	LOAD	R4,R2,NEW_NODE_DATA-ARSIZE
 	STORE	R4,R3,N_DATA	; temp->data = new_node_data
 
@@ -112,7 +110,6 @@ DEBUG:
 	ADDI	R2,R2,-ARSIZE
 	LOADS	PC,R2		; -- return sequence
 
-
 ;==========
 ;		REMOVE	; pop a word from the stack
 			; given   R3 -- s, stack to push on
@@ -123,7 +120,7 @@ ARSIZE=4
 REMOVE:
 	STORES	R1,R2
 	ADDSI	R2,ARSIZE	; -- receiving sequence
-
+	
 	LOAD	R5,R3,HEAD	; node * temp = sp -> head
 	LOAD	R6,R5,N_DATA	; tempdata =  temp -> data
 	CMP	R4,R6
@@ -135,11 +132,11 @@ RM_FIRST_FOUND:		; if the first node is to be removed
 	BR	RM_FREE
 
 RM_CHECK:
-	LOAD	R5,R5,N_NEXT	; load next node into R5
 	MOVE	R7,R5		; node * prev = temp
+	LOAD	R5,R5,N_NEXT	; load next node into R5
 	LOAD	R6,R5,N_DATA	; retval =  temp -> data
 	TESTR	R6
-	BLE	RM_NOT_FOUND
+	BZS	RM_NOT_FOUND
 	CMP	R4,R6
 	BNE	RM_CHECK	
 
@@ -150,9 +147,7 @@ RM_CHECK:
 	STORE	R5,R7,N_NEXT	; prev->next = temp->next
 
 RM_FREE:
-	LIL	R1,FREE
-	MOVE	R3,R4
-	JSRS	R1,R1		; free (temp)
+	TOSUBR	FREE	; free (temp)
 
 	LIS	R3,1		; set returnval to sucess
 	R_S
