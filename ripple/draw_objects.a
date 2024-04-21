@@ -6,51 +6,45 @@
 
 ;||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 	EXT	DRAW_RIPPLE
-	EXT	REMOVE_RIPPLE
 	INT	DRAW_OBJECTS
-;	S	MAIN_STOP
-NODE_POINTER=4
+INDEX=4
 ARSIZE=8
 DRAW_OBJECTS:
+	; takes nothing returns nothing
 	C_S
-	LOADCOM	R3,OBJ_LIST
-	LOAD	R1,R3,LL_PEEK
-	JSRS	R1,R1	; get the head
-	
-OBJ_LOOP:	; while (node != null){
-	TESTR	R3
-	BZS	OBJ_LOOP_QT
-	STORE	R3,R2,NODE_POINTER-ARSIZE
-	LOADS	R3,R3	; loads the pointer to the ripple from the node
-	TOSUBR	DRAW_RIPPLE	
-	LOAD	R3,R2,NODE_POINTER-ARSIZE
-	LOAD	R3,R3,N_NEXT
-	BR	OBJ_LOOP
+	LIS	R5, 0	; index, count in 4
+DRAW_LOOP:	; while (node != null){
+	LIL	R6, RIPPLE_ARRAY
+	ADD	R6,R5,R6
 
-OBJ_LOOP_QT:
-	LOADCOM	R3,OBJ_LIST
-	LOAD	R1,R3,LL_PEEK
-	JSRS	R1,R1	; get the head
-REMOVE_LOOP:	; while (node != null){
+	LOADS	R3,R6
 	TESTR	R3
-	BZS	REMOVE_LOOP_QT
-	STORE	R3,R2,NODE_POINTER-ARSIZE
-	LOADS	R3,R3	; loads the pointer to the ripple from the node
-	LOAD	R6,R3,RIPPLE_LIFE
+	BZS	DL_EMPTY_FIELD
+	; found a ripple to draw
+	STORE	R5,R2,INDEX-ARSIZE
+	TOSUBR	DRAW_RIPPLE	; draw ripple returns the life of the ripple
+	LOAD	R5,R2,INDEX-ARSIZE
+
 	TESTR	R6
-	BZR	LIFE_NOT_ZERO
-	MOVE	R4,R3
-	TOSUBR	REMOVE_RIPPLE
-LIFE_NOT_ZERO:
-	LOAD	R3,R2,NODE_POINTER-ARSIZE
-	LOAD	R3,R3,N_NEXT
-	BR	REMOVE_LOOP
+	BZR	DL_RIPPLE_NOT_DEAD
+	; remove the ripple
+	LIL	R6, RIPPLE_ARRAY
+	ADD	R6,R5,R6
+	LOADS	R3,R6	
+	LIS	R4,0
+	STORES	R4,R6	; erase the ripple field
+	TOSUBR	FREE
+	LOAD	R5,R2,INDEX-ARSIZE
 
-REMOVE_LOOP_QT:
+DL_RIPPLE_NOT_DEAD:
+DL_EMPTY_FIELD:
+	ADDSI	R5,BYTES_IN_W
+	CMPI	R5,MAX_RIPPLE_NUM * BYTES_IN_W
+	BLT	DRAW_LOOP
+
+
 
 	R_S
-
-
 
 END
 

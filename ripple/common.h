@@ -42,7 +42,9 @@ M_THIRD_W = 8
 M_RIGHT_S = 55
 M_RIGHT_W = 8
 
-;attributes of the object
+MAX_RIPPLE_NUM = 8	
+	COMMON	RIPPLE_ARRAY, MAX_RIPPLE_NUM * BYTES_IN_W
+;attributes of Ripple object
 RIPPLE_X=0
 RIPPLE_Y=4
 RIPPLE_RAD=8
@@ -51,6 +53,7 @@ RIPPLE_LIFE=16
 RIPPLE_SIZE=20
 
 	COMMON	CIRCLE, 20 * 32 * BYTES_IN_W ;(provide for max radius 20)
+	COMMON	CIRCLE_WITH_DUPES, 20 * 32 * BYTES_IN_W ;(provide for max radius 20)
 CIRCLE_SIZE_FIELD = 0
 CIRCLE_ARRAY_START = 4
 

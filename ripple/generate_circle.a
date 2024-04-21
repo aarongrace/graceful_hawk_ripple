@@ -7,9 +7,53 @@
 	
 
 	INT	GENERATE_CIRCLE
+ARSIZE=4
+GENERATE_CIRCLE:
+	C_S
+	TOSUBR	GENERATE_CIRCLE_WITH_DUPES
+	
+	LIL	RA, 0	; number of coords in circle array
+
+	LIL	R7,CIRCLE_WITH_DUPES
+	LOAD	RB,R7,CIRCLE_SIZE_FIELD	; number of coords in dupes array
+	ADDSI	R7,CIRCLE_ARRAY_START
+
+	LIL	RC,CIRCLE+CIRCLE_ARRAY_START	; beyond last entry in circle array
+	LIS	R6,0	; reset the dupes counter
+;---------------------------dupe array scope
+DUPE_CHECK:
+	LOADS	R4,R7	; load a coord from the dupes array
+	LIS	R5,0	; reset the array counter
+
+	LIL	R8,CIRCLE+CIRCLE_ARRAY_START
+;-----------------seen array scope
+SEEN_LOOP:
+	LOADS	R3,R8
+	CMP	R3,R4
+	BEQ	DUPE_FOUND	; if seen ignore
+	ADDSI	R8, BYTES_IN_W
+	ADDSI	R5, 1
+	CMP	R5,RA
+	BLT	SEEN_LOOP
+;-----------------end seen array scope
+NOT_DUPE_FOUND:
+	STORES	R4,RC	; store a new coord into circle array
+	ADDSI	RA,1	; increment number of coords in cirlce array
+	ADDSI	RC,4	; increment circle index
+DUPE_FOUND:
+	ADDSI	R7,4	; increment dupes index
+	ADDSI	R6,1	; increment dupes counter
+	CMP	R6,RB	; if dupes counter is less than its array size
+	BLT	DUPE_CHECK	
+;----------------------------end dupe array scope
+	LIL	R7,CIRCLE
+	STORES	RA,R7	; store the circle size
+	R_S
+
+;||||||||||||||||||||||||||||||||||||||||||||||||||||||
 Y_CHANGED_WITHOUT_SAVING=4
 ARSIZE=8
-GENERATE_CIRCLE:
+GENERATE_CIRCLE_WITH_DUPES:
 	;takes R3=rad, R4=center_x,R5=center_y
 	;uses RA=rad, RB=center_x,RC=center_y
 	;	RD=x,RE=y, RF=pointer to current entry in circle obj
@@ -27,7 +71,7 @@ GENERATE_CIRCLE:
 	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
 
 	; generate circle obj with size rad * 32 words
-	LIL	RF,CIRCLE
+	LIL	RF,CIRCLE_WITH_DUPES
 	; important: first field of the circle object should contain the size
 	ADDSI	RF,CIRCLE_ARRAY_START
 
@@ -91,7 +135,6 @@ LOWER_LEFT:
 	
 GC_STORE_END:
 
-DEBUG:
 	LOAD	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
 	TESTR	R5
 	BZR	GC_JUST_DESCENDED
@@ -127,7 +170,7 @@ GC_CHECK:
 	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
 	BR	GC_CHECK	;}
 GC_QUIT:	
-	LIL	R3,CIRCLE
+	LIL	R3,CIRCLE_WITH_DUPES
 
 	SUB	R4,RF,R3	
 	SR	R4,2
