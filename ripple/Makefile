@@ -6,7 +6,7 @@ smal=~/maison/hawk/g_smal32 -P 45 -U ~/maison/hawk -L
 hawklink=~/maison/hawk/hawklink -m -o ripples ~/maison/hawk/monitor.o
 hawk=~/maison/graceful_hawk/hawk
 
-modules = move_objects.o canvas.o display.o draw_objects.o generate_circle.o linkedlist.o ripple.o
+modules = add_objects.o canvas.o display.o draw_objects.o generate_circle.o linkedlist.o ripple.o
 
 ##########
 # primary make target
@@ -21,8 +21,8 @@ whatever.o: main.o $(modules) common.h
 main.o: main.a common.h
 	$(smal) main.a
 
-move_objects.o: move_objects.a common.h
-	$(smal) move_objects.a
+add_objects.o: add_objects.a common.h
+	$(smal) add_objects.a
 
 canvas.o: canvas.a common.h
 	$(smal) canvas.a

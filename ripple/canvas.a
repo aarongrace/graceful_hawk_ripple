@@ -14,24 +14,13 @@ PX_IN_COLUMN = 64
 
 CANVAS_SIZE = 1792
 
-
 	INT	INIT_CANVAS
 ARSIZE=8 ;||||||||||||||||||||||||||||||||||||||||||||||
 INIT_CANVAS:
 	C_S
-
-	TOSUBR	FREE_CANVAS	; free the previous canvas
-
-	; each number on the canvas is a bit
-	; though it is more storage efficient to use words
-	; it is much easier to manipulate this way
-
 	; the canvas is a two-dimensional array with varying lengths
 
-	TOSUBR_3	MALLOC, C_ROWS * BYTES_IN_W
-	SETCOM	R4,R3,CANVAS
-
-	MOVE	RA,R3	;RA is used as pointer to curr canvas row
+	LIL	RA,CANVAS	;RA is used as pointer to curr canvas row
 	LIS	R8,0	; R8=curr_row
 
 ;initializing the upper portion
@@ -54,46 +43,9 @@ IC_LOWER_LOOP:
 	CMPI	R8,C_LOWER_ROWS
 	BNE	IC_LOWER_LOOP
 
-;	TOSUBR	TEST_DRAW
 	;TOSUBR	FILL_CANVAS_S
 	R_S
 
-;	S	DEBUG
-
-ARSIZE=4
-TEST_DRAW:
-	C_S
-	TOSUBR_345 DRAW_ON_CANVAS,#F,13,5
-	TOSUBR_345 DRAW_ON_CANVAS,#E,12,4
-	TOSUBR_345 DRAW_ON_CANVAS,#D,11,3
-
-	TOSUBR_345 DRAW_ON_CANVAS,#A,-11,5
-	TOSUBR_345 DRAW_ON_CANVAS,#B,-17,1
-	TOSUBR_345 DRAW_ON_CANVAS,#1,-18,2
-	TOSUBR_345 DRAW_ON_CANVAS,#2,-19,3
-	TOSUBR_345 DRAW_ON_CANVAS,#3,-20,4
-	TOSUBR_345 DRAW_ON_CANVAS,#4,-21,5
-	TOSUBR_345 DRAW_ON_CANVAS,#F,-24,4
-	TOSUBR_345 DRAW_ON_CANVAS,#E,-25,3
-	TOSUBR_345 DRAW_ON_CANVAS,#C,-7,3
-	TOSUBR_345 DRAW_ON_CANVAS,#D,-6,4
-	TOSUBR_345 DRAW_ON_CANVAS,#E,-5,5
-	TOSUBR_345 DRAW_ON_CANVAS,#F,-4,6
-
-	TOSUBR_345 DRAW_ON_CANVAS,#F,13,-5
-	TOSUBR_345 DRAW_ON_CANVAS,#E,12,-4
-	TOSUBR_345 DRAW_ON_CANVAS,#D,11,-3
-	TOSUBR_345 DRAW_ON_CANVAS,#A,-11,-5
-	TOSUBR_345 DRAW_ON_CANVAS,#B,-17,-1
-	TOSUBR_345 DRAW_ON_CANVAS,#1,-18,-2
-	TOSUBR_345 DRAW_ON_CANVAS,#2,-19,-3
-	TOSUBR_345 DRAW_ON_CANVAS,#3,-20,-4
-	TOSUBR_345 DRAW_ON_CANVAS,#4,-21,-5
-	TOSUBR_345 DRAW_ON_CANVAS,#C,-7,-3
-	TOSUBR_345 DRAW_ON_CANVAS,#D,-6,-4
-	TOSUBR_345 DRAW_ON_CANVAS,#E,-5,-5
-	TOSUBR_345 DRAW_ON_CANVAS,#F,-4,-6
-	R_S
 
 	INT	DRAW_ON_CANVAS
 ARSIZE=4
@@ -135,7 +87,7 @@ DRAW_ON_MEMORY:
 	ADDSI	R5,1-C_UPPER_ROWS	; y = 7 -y
 	NEG	R5,R5
 	SL	R5,2
-	LOADCOM	R7,CANVAS	; loads canvas obj
+	LIL	R7,CANVAS	; loads canvas obj
 	ADD	R7,R7,R5
 	LOADS	R7,R7		; load canvas row
 	ADDI	R7, R7, C_REG_COLUMNS * BYTES_IN_W; get word for mem in row
@@ -152,8 +104,8 @@ DMEM_RETURN:
 AR_CHAR=4
 ARSIZE=8
 SET_DIG_IN_WORD: ;||||||||||||||||||||||||||||||||||||||||
-	;	takes R3=char,R4=pos in byte starting to the right from 0,R7=address of word
-	;	returns nothing
+;takes R3=char,R4=pos in byte starting to the right from 0,R7=address of word
+;returns nothing
 	STORE	R3,R2,AR_CHAR
 	C_S
 	; first step, get byte pos into R4, is_odd into R5
@@ -227,7 +179,7 @@ DOR_PREPARE_FOR_SET_DIG:	; set params for SET_DIG_IN_WORD
 	ADDSI	R5,1-C_UPPER_ROWS	; y = 7 -y
 	NEG	R5,R5
 	SL	R5,2
-	LOADCOM	R7,CANVAS	; loads canvas obj
+	LIL	R7,CANVAS	; loads canvas obj
 	ADD	R7,R7,R5
 	LOADS	R7,R7		; load canvas row
 	ADD	R7,R7,R6  ; get word for the right reg column
@@ -252,7 +204,6 @@ DRAW_ON_MONITOR: ;||||||||||||||||||||||||||||||||||||||||
 	; to convert the coordinates, first add 24
 	ADDI	R4,R4,MONITOR_DIGITS_LEFT_OF_AXIS
 
-DEBUG:
 ;----------prepare y
 	NEG	R5,R5	; invert R5 first
 	ADDSI	R5,-M_START_Y	; subtract the gap from it
@@ -302,10 +253,9 @@ DEBUG:
 	BR	DMON_QT		; to catch exceptions
 DMON_X_READY:
 ;------both y and x are prepared
-;DEBUG:
 	ADDI	R5,R5,C_UPPER_ROWS
 	SL	R5,2 ; change (y+8) into number of bytes 
-	LOADCOM	R7,CANVAS
+	LIL	R7,CANVAS
 	ADD	R7,R7,R5	; get the right canvas row pointer
 	LOADS	R7,R7		; get the canvas row
 
@@ -317,78 +267,81 @@ DMON_QT:
 	LIL	R1,DCANVAS_RETURN
 	JUMPS	R1
 
-ARSIZE = 4;|||||||||||||||||||||||||||||||||||||||
-FREE_CANVAS: 
-;after changing the canvas into words, there is no need to move them
+ARSIZE=4  ;|||||||||||||||||||||||||||||||||||||||||||||
+	INT	LOWER_CANVAS_VALUES
+LOWER_CANVAS_VALUES:
 	C_S
-	LOADCOM	R8,CANVAS
-		
-	TESTR	R8	; quit if canvas is null (first time run)
-	BZS	FC_QT
+	LIL	RF,CANVAS
 
-	LIS	R9,0
-FC_LP:
-	LOADS	R3,R8
-	TOSUBR	FREE
-	ADDSI	R8,4
+	LIS	R8,0	; R8=curr_row
+LCV_UPPER_LOOP:
+;---------------------------------upper scope
+	LIL	R9,0 ;R9 = column
+	LOADS	RB,RF	;RB is used as pointer to canvas row
+;---------------------------row scope
+LCV_ROW_LOOP:
+	LOADS	RA,RB
+;	LIW	RA,#01234567	; for testing only
+;------------------one column scope
+	LIS	R7,0	; R7=curr_byte
+LCV_CHANGE_EACH_BYTE:
+	EXTB	R3,RA,R7
+	; now we need to separate the first and second digits
+	LIL	R4,#0F
+	LIL	R5,#F0
 
+	AND	R4,R3
+	SR	R4,1	; divide the first digit by two
+
+	AND	R5,R3
+	SR	R5,1	; divide the second digit by two
+	LIL	R3,#F0	
+	AND	R3,R5	; and then get rid of any spill over
+
+	OR	R3,R4	; combine them
+	STUFFB	RA,R3,R7
+	ADDSI	R7,1
+	CMPI	R7,BYTES_IN_W
+	BLT	LCV_CHANGE_EACH_BYTE
+;----------------end column scope
+	STORES	RA,RB	; store the char to the col
+	ADDSI	RB,4 ;	CMP	R7,R9
 	ADDSI	R9,1
-	CMPI	R9,C_ROWS
-	BLT	FC_LP
+	CMPI	R9, C_UPPER_COLUMNS
+	BLT	LCV_ROW_LOOP
+;---------------------------end row scope
+	ADDSI	RF,4	; moving to next row
+	ADDSI	R8,1 
+	CMPI	R8,C_UPPER_ROWS	 ; if R8 is 8, switch to col numbers for monitor
+	BLT	LCV_UPPER_LOOP
+;---------------------------------end upper scope
 
-	LOADCOM	R3,CANVAS
-	TOSUBR	FREE
+	LIS	R8,0	; curr lower row
+LCV_LOWER_LOOP:
+;---------------------------------LOWER scope
+	LIS	R9,0 ;R9 = digit
+	LOADS	RB,RF	;RB is used as pointer to canvas row
+;---------------------------row scope
+LCV_LOWER_ROW_LOOP:
+	LOADS	R3,RB
+;	LIL	R3,#5	; for testing only
+;------------------digit scope
+	SR	R3,1	; divide the first digit by two
+	STORES	R3,RB	; store the char to the col
+;----------------end digit scope
+	ADDSI	RB,4 ;	CMP	R7,R9
+	ADDSI	R9,1
+	CMPI	R9, C_LOWER_DIGS
+	BLT	LCV_LOWER_ROW_LOOP
+;---------------------------end row scope
+	ADDSI	RF,4	; moving to next row
+	ADDSI	R8,1 
+	CMPI	R8,C_LOWER_ROWS	 ; if R8 is 8, switch to col numbers for monitor
+	BLT	LCV_LOWER_LOOP
+;---------------------------------end LOWER scope
 
-FC_QT:
+
 	R_S
-
-
-;ARSIZE=4  ;|||||||||||||||||||||||||||||||||||||||||||||
-;FILL_CANVAS_S:
-;	; set a word in the canvas array
-;	C_S
-;	LOADCOM	RF,CANVAS
-;	LOADCOM	R3,FILL_S_FIRST_LETTER
-;
-;;---------------------------------rows loop
-;	LIS	R8,0	; R8=curr_row
-;	LIL	R9,C_UPPER_COLS ;R9 = cols to fill
-;FCS_ROWS_LOOP:
-;	LOADS	RA,RF	;RA is used as pointer to canvas row
-;;------------------one row loop
-;	LIS	R7,0	; R7=curr_col
-;	LIS	R5,0	; R5=control for break rhthm
-;FCS_FILL_EACH_COLUMN:
-;	STORES	R3,RA	; store the char to the col
-;
-;	ADDSI	R3,1 ;increment the char
-;	CMPI	R3,15
-;	BLE	FCS_R3_NOT_15
-;	TESTR	R5	; if R5 is 1, set R3 to 0 instead of 1 to break the rhythm
-;	BEQ	FCS_R5_0
-;	LIS	R5,0
-;	LIS	R3,15
-;	BR	FCS_R3_NOT_15
-;FCS_R5_0:
-;	LIS	R5,1
-;	LIS	R3,0
-;
-;FCS_R3_NOT_15:
-;	ADDSI	R7,1
-;	ADDSI	RA,4 ;	CMP	R7,R9
-;	BLT	FCS_FILL_EACH_COLUMN
-;;----------------
-;	ADDSI	R8,1 
-;
-;	CMPI	R8,8	 ; if R8 is 8, switch to col numbers for monitor
-;	BNE	FCS_NOT_8
-;	LIL	R9,C_LOWER_COLS
-;
-;FCS_NOT_8:
-;	ADDSI	RF,4	; moving to next row
-;	CMPI	R8,C_ROWS
-;	BLT	FCS_ROWS_LOOP
-;	R_S
 
 END
 ;-----------------------------------for testing
@@ -401,3 +354,40 @@ MAIN:
 	TOSUBR DRAW_ON_CANVAS
 
 	END
+
+
+ARSIZE=4
+TEST_DRAW:
+	C_S
+	TOSUBR_345 DRAW_ON_CANVAS,#F,13,5
+	TOSUBR_345 DRAW_ON_CANVAS,#E,12,4
+	TOSUBR_345 DRAW_ON_CANVAS,#D,11,3
+
+	TOSUBR_345 DRAW_ON_CANVAS,#A,-11,5
+	TOSUBR_345 DRAW_ON_CANVAS,#B,-17,1
+	TOSUBR_345 DRAW_ON_CANVAS,#1,-18,2
+	TOSUBR_345 DRAW_ON_CANVAS,#2,-19,3
+	TOSUBR_345 DRAW_ON_CANVAS,#3,-20,4
+	TOSUBR_345 DRAW_ON_CANVAS,#4,-21,5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-24,4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-25,3
+	TOSUBR_345 DRAW_ON_CANVAS,#C,-7,3
+	TOSUBR_345 DRAW_ON_CANVAS,#D,-6,4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-5,5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-4,6
+
+	TOSUBR_345 DRAW_ON_CANVAS,#F,13,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#E,12,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#D,11,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#A,-11,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#B,-17,-1
+	TOSUBR_345 DRAW_ON_CANVAS,#1,-18,-2
+	TOSUBR_345 DRAW_ON_CANVAS,#2,-19,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#3,-20,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#4,-21,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#C,-7,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#D,-6,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-5,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-4,-6
+	R_S
+

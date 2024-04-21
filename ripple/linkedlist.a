@@ -77,7 +77,7 @@ EMPTY:		; given   R3 -- s, a stack to test
 E_IS_EMPTY:			; retval = (temp == 0)
 	JUMPS	R1		; return retval
 
-
+	INT	DEBUG
 ;=========
 ;		PUSH	; push a word onto the stack
 			; given   R3 -- stack pointer
@@ -98,6 +98,7 @@ PUSH:
 	LIL	R1,MALLOC
 	JSRS	R1,R1		; node * temp = (node *) malloc (node_size)
 
+DEBUG:
 	LOAD	R4,R2,NEW_NODE_DATA-ARSIZE
 	STORE	R4,R3,N_DATA	; temp->data = new_node_data
 

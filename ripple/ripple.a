@@ -9,7 +9,7 @@
 ;	STORE	R3,reg,field
 ;ENDMAC
 ;|||||||||||||||||||||||||||||||||||||||||||||||||||||
-	INT	DEBUG
+;	INT	DEBUG
 	INT	RIPPLE_CONSTRUCTOR
 ARSIZE=4
 RIPPLE_CONSTRUCTOR:

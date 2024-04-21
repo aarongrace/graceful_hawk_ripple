@@ -1,0 +1,33 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+
+
+;|||||||||||||||||||||||||||||||||||||||||||||||||||||||
+	EXT	NEWLINKEDLIST
+	EXT	RIPPLE_CONSTRUCTOR
+	INT 	INITIALIZE_OBJ_LIST
+ARSIZE=8
+INITIALIZE_OBJ_LIST:
+	C_S
+	TOSUBR	NEWLINKEDLIST
+	SETCOM	R4,R3,OBJ_LIST
+
+	TOSUBR	ADD_RIPPLE
+	TOSUBR	ADD_RIPPLE
+;TODO	test obj_list functions, particularly remove
+
+
+	INT	ADD_RIPPLE	
+	R_S
+ARSIZE=4
+ADD_RIPPLE:
+	C_S
+	TOSUBR	RIPPLE_CONSTRUCTOR	
+	MOVE	R4,R3
+	LOADCOM	R3,OBJ_LIST
+	LOAD	R1,R3,LL_PUSH
+	JSRS	R1,R1
+	R_S
+	END

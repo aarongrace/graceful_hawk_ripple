@@ -22,7 +22,7 @@ ENDMAC
 ARSIZE=4
 RECREATE_MONITOR:; |||||||||||||||||||||||||||||
 	C_S
-	LOADCOM	RF,CANVAS
+	LIL	RF,CANVAS
 	LIL	R3,C_UPPER_ROWS
 	SL	R3,2
 	ADD	RF,RF,R3 ;set RF to start of monitor rows
@@ -86,7 +86,7 @@ ARSIZE=4
 REGISTER_WORDS_NUM = 2
 RECREATE_MEMORY: ;||||||||||||||||||||||||||||||||||||||||
 	C_S
-	LOADCOM	R6,CANVAS
+	LIL	R6,CANVAS
 	LIL	R5,MEMD_START
 
 	; RB=row
@@ -140,7 +140,7 @@ RECREATE_REGISTERS:
 ; recreating the register, this subr does not end conventionally
 ; it jumps directly to MAIN_STOP, which then goes to program cycle
 	; set R6 to the row of MEMD
-	LOADCOM	R2,CANVAS
+	LIL	R2,CANVAS
 	ADDI	R2,R2,12	; start from R3, which is the fourth row
 WORD_INCREMENT=0
 	LOAD_R R3
@@ -148,7 +148,7 @@ WORD_INCREMENT=0
 	LOAD_R R5
 	LOAD_R R6
 	LOAD_R R7
-	LOADCOM	R2,CANVAS
+	LIL	R2,CANVAS
 WORD_INCREMENT=4
 	LOAD_R R8
 	LOAD_R R9

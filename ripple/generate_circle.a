@@ -172,7 +172,7 @@ DRAW_CIRCLE:
 	STORE	R4,R2,PX_LEFT-ARSIZE
 	ADDSI	R3,4
 	STORE	R3,R2,CIRCLE_ARRAY-ARSIZE
-
+;
 	MOVE	R7,R3 ; R3 out of the way for param input
 DC_LP:
 	LOADS	R3,R7	; loading coord word into R3 and converting to two reg coords
