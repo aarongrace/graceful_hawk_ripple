@@ -30,6 +30,7 @@
 #define TWOREG   9
 #define SPECIAL  10
 #define NOREG    11
+#define ONLYCONSTANT 12
 
 /* ir fields OP DST S1 S2 | OP DST OP1 SRC | OP DST OP1 X | OP DST CONST */
 #include "irfields.h"
@@ -104,7 +105,12 @@ static void decode( WORD a ) {
 		case 0xF: name = "TRUNC   "; form = SHORTCON; break;
 		case 0xE: name = "SXT     "; form = SHORTCON; break;
 		case 0xD: name = "BTRUNC  "; form = SHORTCON; break;
-		case 0xC: name = "ADDSI   "; form = SHORTCON; break;
+		case 0xC: 
+			if (DST == 0){
+				name = "DISPLAY "; form = ONLYCONSTANT; break;
+			} else {
+				name = "ADDSI   "; form = SHORTCON; break;
+			}
 		case 0xB: name = "AND     "; form = TWOREG; break;
 		case 0xA: name = "OR      "; form = TWOREG; break;
 		case 0x9: name = "EQU     "; form = TWOREG; break;
@@ -213,6 +219,9 @@ static void showit(WORD a) {
 			break;
 		case NOREG:
 			break;
+		case ONLYCONSTANT:
+			printw("%1X", SRC);
+			break; 
 		}
 	} else { /* illegal */
 		printw("#%04"PRIX32, ir & (WORD)0x0000FFFFUL);

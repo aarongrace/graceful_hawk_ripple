@@ -24,17 +24,18 @@
 
 /* First, declare that this is a main program */
 #define MAIN
-
 #include <inttypes.h>
+#include <stdbool.h>
 #include "bus.h"
 #include "powerup.h"
 #include "console.h"
 #include "float.h"
 
-
 /************************************************************/
 /* Declarations of machine components not included in bus.h */
-/************************************************************/
+/***********************************************************					switch (SRC) {
+					
+					}*/
 
 static WORD irb; /* instruction register buffer */
 static HALF ir;  /* the instruction register */
@@ -736,8 +737,10 @@ int main(int argc, char ** argv) {
 				}
 				continue;
 
-			case 0xC: /* ADDSI */
-				if (DST == 0) break;
+			case 0xC: 
+				if (DST == 0){/* DISPLAY */
+					change_display(SRC);	
+				} else /* ADDSI */
 				{
 					WORD src = SRC;
 					if (src & 0x8) src |= 0xFFFFFFF0UL;

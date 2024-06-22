@@ -101,7 +101,7 @@ WORD dump_mode = CODEMODE;
 /*************************
  * Symbolic Dump Support *
  *************************/
-
+static void change_dump_mode();
 
 /*******************
  * console display *
@@ -309,7 +309,7 @@ static void menu() {
 	/* display console status */
 	static char * menus[]= {
 		"  RUNNING   control c - halt",
-		"**HALTED**  r s q ? o(step out) v(change theme)",
+		"**HALTED**  r s q ? o(step out) v(theme) b(banner) w(animate)",
 		"**HALTED**  0-9/A-F(enter n) m(show m[n])"
 			" +-(adjust n) ?(help)",
 		"**HALTED**  t(toggle memory display) ?(help)",
@@ -513,6 +513,8 @@ void console_startup() {
 	title();
 	menu();
 
+	switch_colorful_nums();//for testing ripples, should be off normally
+
 	dispcols = COLS - dispx;
 	dispend = DISPBASE + (DISPSTART + (((LINES - dispy)-1) * (dispcols)));
 }
@@ -538,10 +540,11 @@ void console() {
 		if (animation_mode == 0){
 			running = FALSE;
 		} else {
-			   struct timespec tim, tim2;
-			   tim.tv_sec = 0;
-			   tim.tv_nsec = 50000000L;
-			   nanosleep(&tim, &tim2);
+			advance_frame();
+			struct timespec tim, tim2;
+			tim.tv_sec = 0;
+			tim.tv_nsec = 50000000L;
+			nanosleep(&tim, &tim2);
 		}
 		which_menu = 1;
 	}
@@ -666,13 +669,7 @@ void console() {
 			break;
 
 		case 't': /* toggle memory dump mode command */
-			if (dump_mode == DATAMODE) {
-				dump_mode = CODEMODE;
-			} else {
-				dump_mode = DATAMODE;
-			}
-			dump();
-			refresh();
+			change_dump_mode();
 			break;
 
 		case '+': /* increment dumped memory command */
@@ -725,6 +722,7 @@ void console() {
 			if (animation_mode == 0) {
 				running = TRUE;
 				animation_mode = 1;
+				recycle=0x20000;
 				menu();
 				morecycles += (recycle + cycles);
 				cycles = -recycle; /* next refresh when it's positive */
@@ -732,10 +730,36 @@ void console() {
 			}
 			else {
 				animation_mode=0;
+				recycle=21;
 			}
 			return;
 		}
 
 
 	}
+}
+
+void change_display(int mode){
+	switch (mode)
+	{
+	case 1:
+		change_theme(0);
+		break;
+	case 0:
+		change_dump_mode();
+		break;
+	}
+}
+
+static void change_dump_mode(){
+	if (dump_mode == DATAMODE)
+	{
+		dump_mode = CODEMODE;
+	}
+	else
+	{
+		dump_mode = DATAMODE;
+	}
+	dump();
+	refresh();
 }

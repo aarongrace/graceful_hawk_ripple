@@ -13,7 +13,7 @@
 
 int curr_theme = t_default;
 char * theme_str;
-bool cn_on = true;
+bool cn_on = false;
 int banner_stage = 0;
 int curr_banner_style = bs_gradient;
 char* curr_banner_char;
@@ -317,7 +317,7 @@ static void init_themes(){
 	t_rgb(themes[t_meadows].n_mod0,			0.5,	1.8,	0.8);
 	t_rgb(themes[t_meadows].n_mod1,			0.4,	0.7,	1.7);
 	t_rgb(themes[t_meadows].n_mod2,			1.6,	1.4,	0.7);
-	t_rgb(themes[t_meadows].n_mod3,			0.8,	2.1,	1.3);
+	t_rgb(themes[t_meadows].n_mod3,			0.65,	1.9,	0.6);
 
 }
 

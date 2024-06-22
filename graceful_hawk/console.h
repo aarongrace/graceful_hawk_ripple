@@ -37,3 +37,6 @@ void console_startup();
 
 void console();
 /* console, called from main when countdown < 0 or halt */
+
+void change_display(int mode);
+/* change the display from within hawk */
