@@ -1,0 +1,257 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+
+
+	
+
+	INT	GENERATE_CIRCLE
+ARSIZE=4
+GENERATE_CIRCLE:
+	C_S
+	TOSUBR	GENERATE_CIRCLE_WITH_DUPES
+	
+	LIL	RA, 0	; number of coords in circle array
+
+	LIL	R7,CIRCLE_WITH_DUPES
+	LOAD	RB,R7,CIRCLE_SIZE_FIELD	; number of coords in dupes array
+	ADDSI	R7,CIRCLE_ARRAY_START
+
+	LIL	RC,CIRCLE+CIRCLE_ARRAY_START	; beyond last entry in circle array
+	LIS	R6,0	; reset the dupes counter
+;---------------------------dupe array scope
+DUPE_CHECK:
+	LOADS	R4,R7	; load a coord from the dupes array
+	LIS	R5,0	; reset the array counter
+
+	LIL	R8,CIRCLE+CIRCLE_ARRAY_START
+;-----------------seen array scope
+SEEN_LOOP:
+	LOADS	R3,R8
+	CMP	R3,R4
+	BEQ	DUPE_FOUND	; if seen ignore
+	ADDSI	R8, BYTES_IN_W
+	ADDSI	R5, 1
+	CMP	R5,RA
+	BLT	SEEN_LOOP
+;-----------------end seen array scope
+NOT_DUPE_FOUND:
+	STORES	R4,RC	; store a new coord into circle array
+	ADDSI	RA,1	; increment number of coords in cirlce array
+	ADDSI	RC,4	; increment circle index
+DUPE_FOUND:
+	ADDSI	R7,4	; increment dupes index
+	ADDSI	R6,1	; increment dupes counter
+	CMP	R6,RB	; if dupes counter is less than its array size
+	BLT	DUPE_CHECK	
+;----------------------------end dupe array scope
+	LIL	R7,CIRCLE
+	STORES	RA,R7	; store the circle size
+	R_S
+
+;||||||||||||||||||||||||||||||||||||||||||||||||||||||
+Y_CHANGED_WITHOUT_SAVING=4
+ARSIZE=8
+GENERATE_CIRCLE_WITH_DUPES:
+	;takes R3=rad, R4=center_x,R5=center_y
+	;uses RA=rad, RB=center_x,RC=center_y
+	;	RD=x,RE=y, RF=pointer to current entry in circle obj
+	;	R5=control for decrementing y
+	;returns nothing, but changes circle object, which contains all coords
+	;	the first field of circle is its size
+	;	the circle array has x in lower 4 bits and y in higher 4 bits
+	C_S
+	
+	MOVE	RA,R3
+	MOVE	RB,R4
+	MOVE	RC,R5
+
+	LIS	R5,0
+	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
+
+	; generate circle obj with size rad * 32 words
+	LIL	RF,CIRCLE_WITH_DUPES
+	; important: first field of the circle object should contain the size
+	ADDSI	RF,CIRCLE_ARRAY_START
+
+	LIS	RD,0	; x = 0
+	MOVE	RE,RA	; y = rad
+
+	MOVE	R3,RA
+	MOVE	R4,RA
+	TOSUBR	TIMESU
+	MOVE	R8,R3	
+	ADDSI	R8, 1	; save rad^2 + 1in R8
+
+GC_WHILE:
+	; obj[curr] = y << 4 + x
+	MOVE	R6,RD		; x
+	MOVE	R7,RE		; y
+	
+UPPER_RIGHT:
+	ADD	R6,RB,RD	; x = center_x + x
+	ADD	R7,RC,RE	; y = center_y + y
+	TOSUBR	GC_STORE_SUBR
+
+	ADD	R6,RB,RE	; x = center_x + y
+	ADD	R7,RC,RD	; y = center_y + x
+	TOSUBR	GC_STORE_SUBR
+
+	TESTR	RD		; if x == 0, store only +y -y
+	TESTR	RD		; if x == 0, store only +y -y
+	BEQ	LOWER_LEFT
+UPPER_LEFT:
+	SUB	R6,RB,RD	; x = center_x - x
+	ADD	R7,RC,RE	; y = center_y + y
+	TOSUBR	GC_STORE_SUBR
+
+	SUB	R6,RB,RE	; x = center_x + y
+	ADD	R7,RC,RD	; y = center_y + x
+	TOSUBR	GC_STORE_SUBR
+	
+	
+	TESTR	RE		; if y == 0, store only +x -x
+	BEQ	GC_STORE_END
+LOWER_RIGHT:
+	ADD	R6,RB,RD	; x = center_x + x
+	SUB	R7,RC,RE	; y = center_y - y
+	TOSUBR	GC_STORE_SUBR
+
+	ADD	R6,RB,RE	; x = center_x + y
+	SUB	R7,RC,RD	; y = center_y + x
+	TOSUBR	GC_STORE_SUBR
+	
+
+LOWER_LEFT:
+	SUB	R6,RB,RD	; x = center_x - x
+	SUB	R7,RC,RE	; y = center_y - y
+	TOSUBR	GC_STORE_SUBR
+
+	SUB	R6,RB,RE	; x = center_x + y
+	SUB	R7,RC,RD	; y = center_y + x
+	TOSUBR	GC_STORE_SUBR
+	
+	
+GC_STORE_END:
+
+	LOAD	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
+	TESTR	R5
+	BZR	GC_JUST_DESCENDED
+	ADDSI	RD, 1	; x += 1
+	MOVE	R6,RD
+	SL	R6,1
+	CMP	RD,RA
+	BGE	GC_QUIT
+
+GC_JUST_DESCENDED:
+	LIS	R5,0	; reset the control variable
+	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
+GC_CHECK:
+	; check x^2 + y^2 > rad ^2
+	MOVE	R3,RD
+	MOVE	R4,RD
+	TOSUBR	TIMESU	
+	MOVE	R7,R3	;save x^2 in R7
+
+	MOVE	R3,RE
+	MOVE	R4,RE
+	TOSUBR	TIMESU
+;	SL	R3,1	; uncomment to add add spikes
+	ADD	R7,R7,R3 ; save x^2 + y^2 in R7
+
+	CMP	R7,R8	; if !(x^2 + y^2 > rad ^2){
+	BLE	GC_WHILE
+	ADDSI	RE,-1	; y -= 1
+	LOAD	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
+	TESTR	R5
+	BZR	GC_WHILE
+	LIS	R5,1	; R5 is the flag for having decremented 
+	STORE	R5,R2,Y_CHANGED_WITHOUT_SAVING-ARSIZE
+	BR	GC_CHECK	;}
+GC_QUIT:	
+	LIL	R3,CIRCLE_WITH_DUPES
+
+	SUB	R4,RF,R3	
+	SR	R4,2
+	ADDSI	R4,-1	; discount the first field, used for size
+	STORES	R4,R3
+
+	R_S
+
+ARSIZE=4
+GC_STORE_SUBR:
+	C_S
+	LIL	R3,#FFFF
+	AND	R6,R3	; get the lower 4 digits of R6
+	SL	R7,16
+	OR	R6,R7
+	STORES	R6,RF
+	ADDSI	RF,4
+	R_S
+	
+	
+	EXT	DRAW_ON_CANVAS
+	INT	DRAW_CIRCLE
+CIRCLE_ARRAY=4
+PX_LEFT=8
+CIRCLE_CHAR=16
+ARSIZE=20
+DRAW_CIRCLE:
+	; takes R3=rad,R4,center_x,R5=center_y,R6=char
+	C_S
+	STORE	R6,R2,CIRCLE_CHAR-ARSIZE
+	TOSUBR	GENERATE_CIRCLE
+
+	LIL	R3,CIRCLE
+	LOADS	R4,R3
+	STORE	R4,R2,PX_LEFT-ARSIZE
+	ADDSI	R3,4
+	STORE	R3,R2,CIRCLE_ARRAY-ARSIZE
+;
+	MOVE	R7,R3 ; R3 out of the way for param input
+DC_LP:
+	LOADS	R3,R7	; loading coord word into R3 and converting to two reg coords
+	TOSUBR	CONVERT_WORD_COORDS
+
+	LOAD	R3,R2,CIRCLE_CHAR-ARSIZE ; loading circle char into R3
+	TOSUBR	DRAW_ON_CANVAS
+
+	LOAD	R7,R2,CIRCLE_ARRAY-ARSIZE	; move to the next coord in array
+	ADDSI	R7,4
+	STORE	R7,R2,CIRCLE_ARRAY-ARSIZE
+
+	LOAD	R6, R2, PX_LEFT-ARSIZE ; px_left -= 1
+	ADDSI	R6,-1		; if (px_left == 0) return
+	STORE	R6,R2,PX_LEFT-ARSIZE
+	TESTR	R6
+	BNE	DC_LP
+
+	R_S
+	
+ARSIZE=0
+CONVERT_WORD_COORDS:
+	;takes R3, the word containing the coords
+	;returns R4=x,R5=y
+	MOVE	R4,R3
+	LIL	R6,#0000FFFF
+	AND	R4,R6
+	SXT	R4,4*4
+
+	MOVE	R5,R3
+	SR	R5,16
+
+	JUMPS	R1	
+
+
+
+END
+	INT	MAIN
+	S	GC_QUIT
+MAIN:
+	LIS	R3, 5
+	LIS	R4,1
+	LIS	R5,2
+	TOSUBR	GENERATE_CIRCLE
+
+	

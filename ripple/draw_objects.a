@@ -1,0 +1,51 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+
+
+;||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+	EXT	DRAW_RIPPLE
+	INT	DRAW_OBJECTS
+INDEX=4
+ARSIZE=8
+DRAW_OBJECTS:
+	; takes nothing returns nothing
+	C_S
+	LIS	R5, 0	; index, count in 4
+DRAW_LOOP:	; while (node != null){
+	LIL	R6, RIPPLE_ARRAY
+	ADD	R6,R5,R6
+
+	LOADS	R3,R6
+	TESTR	R3
+	BZS	DL_EMPTY_FIELD
+	; found a ripple to draw
+	STORE	R5,R2,INDEX-ARSIZE
+	TOSUBR	DRAW_RIPPLE	; draw ripple returns the life of the ripple
+	LOAD	R5,R2,INDEX-ARSIZE
+
+	TESTR	R6
+	BZR	DL_RIPPLE_NOT_DEAD
+	; remove the ripple
+	LIL	R6, RIPPLE_ARRAY
+	ADD	R6,R5,R6
+	LOADS	R3,R6	
+	LIS	R4,0
+	STORES	R4,R6	; erase the ripple field
+	TOSUBR	FREE
+	LOAD	R5,R2,INDEX-ARSIZE
+
+DL_RIPPLE_NOT_DEAD:
+DL_EMPTY_FIELD:
+	ADDSI	R5,BYTES_IN_W
+	CMPI	R5,MAX_RIPPLE_NUM * BYTES_IN_W
+	BLT	DRAW_LOOP
+
+
+
+	R_S
+
+END
+
+	

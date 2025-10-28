@@ -1,0 +1,138 @@
+	USE	"hawk.h"
+;	EXT	GUI_START
+	USE	"common.h"
+	EXT	DISPLAY_CANVAS
+	;USE	"display.h"
+
+
+	INT	DRAW_OBJECT
+
+ARSIZE = 0
+GET_ROW:
+	;takes variable R6 the row
+	;uses variable RC as temp
+	;returns R6, the memory address of the row
+	MOVE	RC,R6
+	LIL	R6, GUI_START
+GET_ROW_LOOP:
+	TESTR 	RC
+	BLE	GET_ROW_QT
+	ADDSI	R6,4	
+	ADDSI	RC,-1
+
+	BR GET_ROW_LOOP
+GET_ROW_QT:
+	JUMPS	R1
+
+
+ARSIZE	=	4
+CHANGE_PIXELS_IN_ROW:
+	;change the pixel from a grid
+	;	args:
+	;	R4, address of the object
+	;	R5, DRAWABLE_X
+	;	R6, DRAWABLE_Y
+	;	R9, the digits in the template for the intended row
+
+	STORES	R1,R2
+	ADDI	R2,R2,ARSIZE
+
+	;find the correct row
+	JSR	R1,GET_ROW
+	;now R6 should hold the memory address of the intended row
+	LOADS	R3,R6	;R3 holds the original line
+
+	LIL	RC,#0F  ;setting up RC and RD as templates for cutting digits
+	LIL	RD,#F0
+CP_LOOP:
+	TESTR	R9	;if there are no more letters to be replaced, quit
+	BZS	CP_QUIT
+
+	;ADDSI	R5,-8	;not in use, can be used to let objects traverse the bounds
+
+	MOVE	RA,R9 ;RA is used as the temp replacement digit
+	
+	MOVE	R8,R5	; R5 is the x value, or the hex digit to be changed
+	SR	R8,1	; R8 is now the byte to change
+	EXTB	R7,R3,R8 ;extracting the original byte into R7
+	BITTST	R5,0
+	BBS	CP_CHANGE_ODD
+	AND	RA,RC	;get the first digit of the replacement letters
+	AND	R7,RD	;setting the first digit the original byte as 0	
+CP_ENDIF:
+	OR	R7,RA	;putting the original and the new together
+	STUFFB	R3,R7,R8;putting R7, the modified byte, back into the original line
+	SR	R9,4	;moving onto the next digit
+	ADDSI	R5,1
+
+	BR	CP_LOOP	
+
+CP_CHANGE_ODD:
+	AND	RA,RC
+	SL	RA,4	;putting the intended digit(odd) as the second digit 
+	AND	R7,RC	; setting the second digit of the original byte as 0
+	BR	CP_ENDIF
+
+CP_QUIT:
+	STORES	R3,R6	
+
+	ADDI	R2,R2,-ARSIZE
+	LOADS	PC,R2
+
+
+
+
+COORD_Y = 4
+REMAINING_LINES = 8 
+OBJECT_ADDRESS = 12
+TEMPLATE_ADDRESS= 16
+ARSIZE = 20
+DRAW_OBJECT:
+	;called by program cycle
+	;draws figures
+	;takes parameter R4, the  address of drawable object
+	STORES	R1,R2
+	ADDI	R2,R2,ARSIZE
+	STORE	R4,R2, OBJECT_ADDRESS
+	;initialize the position of the figure
+	LOAD	R5,R4,DRAWABLE_X
+	LOAD	R6,R4,DRAWABLE_Y
+	STORE	R6,R2,COORD_Y
+	LOAD	R9,R4,DRAWABLE_TEMPLATE
+	
+	LOADS	RA, R9	;the first line of template contains i
+			; the number of lines in the second byte
+	LIS	RF,01
+	EXTB	RA,RA,RF
+	STORE	RA, R2, REMAINING_LINES	
+	ADDSI	R9, 4	;move R4 to the address of the first line of the template
+	STORE	R9, R2, TEMPLATE_ADDRESS
+
+DRAW_LOOP:
+	TESTR	RA
+	BZS	DRAW_QUIT	;quit if no more lines remain to draw
+
+	LOADS	R9,R9		;get the replacement digits
+	LIL	R1,CHANGE_PIXELS_IN_ROW
+	JSRS	R1,R1
+
+	LOAD	R4,R2,OBJECT_ADDRESS
+	LOAD	R5,R4,DRAWABLE_X
+	LOAD	R6, R2, COORD_Y
+	ADDSI	R6, 1
+	STORE	R6,R2,COORD_Y
+
+	LOAD	R9, R2, TEMPLATE_ADDRESS
+	ADDSI	R9, 4
+	STORE	R9, R2, TEMPLATE_ADDRESS
+
+
+	LOAD	RA,R2,REMAINING_LINES
+	ADDSI	RA, -1
+	STORE	RA,R2,REMAINING_LINES
+
+
+	BR	DRAW_LOOP
+DRAW_QUIT:
+	ADDI		R2,R2,-ARSIZE
+	LOADS		PC,R2

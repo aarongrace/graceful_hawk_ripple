@@ -1,0 +1,1 @@
+	EXT	DRAW_OBJECT

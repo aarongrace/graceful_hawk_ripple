@@ -1,0 +1,386 @@
+	USE	"hawk.h"
+	USE	"stdio.h"
+
+	COMMON	YOU_POS, 4
+	COMMON	BALL_POS, 4
+	COMMON 	YOU_OBJ, 4
+	COMMON	BALL_OBJ, 4
+	;S	MOVE_OBJECTS
+	;S	DISPLAY_OBJECTS
+	S	GUI_COMMAND
+	;S	MAIN
+	INT	MAIN
+
+
+;drawable obect def
+DRAWABLE_X = 0
+DRAWABLE_Y = 4
+DRAWABLE_VEL_X = 8
+DRAWABLE_VEL_Y = 12
+DRAWABLE_TEMPLATE = 16
+DRAWABLE_SIZE = 20
+
+ARSIZE =0
+DRAWABLE_CONSTRUCTOR:
+	;constructor for the Drawable object
+	;args:	R1, return address
+	;	R4, a global var that holds the address to the object
+	;	R5, DRAWABLE_X
+	;	R6, DRAWABLE_Y
+	;	R7, X velocity
+	;	RC, y velocity
+	;	R9, address to template
+	LOADS	R4,R4
+	STORE	R5,R4,DRAWABLE_X
+	STORE	R6,R4,DRAWABLE_Y
+	STORE	R7,R4,DRAWABLE_VEL_X
+	STORE	R8,R4,DRAWABLE_VEL_Y
+	STORE	R9,R4,DRAWABLE_TEMPLATE
+	
+	JUMPS	R1
+
+
+;gui parameters
+GUI_START = #012000
+GUI_COMMAND = GUI_START+4
+GUI_END = GUI_START+20
+GUI_ROWS = 8
+
+	ALIGN	8
+BACKGROUND:
+	W	#11137777
+	W	#11113777
+	W	#11111377
+	W	#11111133
+	W	#01111133
+	W	#00111113
+	W	#00011113
+	W	#00000111
+
+BALL_TEMPLATE:
+	W	#00000003
+	W	#00001BAE
+	W	#00002BAE
+	W	#00003BAE
+
+YOU_TEMPLATE:
+	W	#00000001
+	W	#00000FAB
+
+SAVE_TEMPLATE=4
+ARSIZE = 8
+INIT_GUI:
+	;uses R4 as temp register to store into memory
+	;changes all memory registers in the display into 1
+	STORES	R1,R2
+	ADDI	R2,R2,ARSIZE
+
+	LIL	R3, BACKGROUND 
+	LIL	R5, GUI_START
+	LIS	R6, 0	;row = 0
+INIT_GUI_WHILE:
+	LOADS	R4,R3	;loading backround into R4
+	
+	CMPI	R6,GUI_ROWS
+	BZS	INIT_GUI_END	; if (row = GUI_ROWS) break;
+	STORES	R4,R5
+INIT_GUI_CONTINUE:
+	ADDSI	R6, 1	; row++
+	ADDSI	R5, 4
+	ADDSI	R3, 4	;next line in background template
+		
+	BR	INIT_GUI_WHILE
+INIT_GUI_END:
+
+	ADDI	R2,R2,-ARSIZE
+	LOADS	PC,R2
+
+	ALIGN	4
+
+INIT_GUI_CREATE_SPIRAL:
+	;NOT IN USE
+	; shift the template left
+	MOVE	R8,R4
+	SR	R8,16
+	SR	R8,12
+	SL	R4,4
+	OR	R4,R8
+
+
+ARSIZE	=	4
+CHANGE_PIXELS_IN_ROW:
+	;change the pixel from a grid
+	;	args:
+	;	R5, DRAWABLE_X
+	;	R6, DRAWABLE_Y
+	;	R9, the digits in the template for the intended row
+
+	STORES	R1,R2
+	ADDI	R2,R2,ARSIZE
+
+	;find the correct row
+	JSR	R1,GET_ROW
+	;now R6 should hold the memory address of the intended row
+	LOADS	R4,R6	;R4 holds the original line
+
+	LIL	RC,#0F  ;setting up RC and RD as templates for cutting digits
+	LIL	RD,#F0
+CP_LOOP:
+	TESTR	R9	;if there are no more letters to be replaced, quit
+	BZS	CP_QUIT
+
+	CMPI	R5,8	;if x > 8, x -= 8
+	BNS	CP_CONTINUE_UNDER_8
+	ADDSI	R5,-8
+CP_CONTINUE_UNDER_8:
+
+	MOVE	RA,R9 ;RA is used as the temp replacement digit
+	
+	MOVE	R8,R5	; R5 is the x value, or the hex digit to be changed
+	SR	R8,1	; R8 is now the byte to change
+	EXTB	R7,R4,R8 ;extracting the original byte into R7
+
+	BITTST	R5,0
+	BBS	CP_CHANGE_ODD
+	AND	RA,RC	;get the first digit of the replacement letters
+	AND	R7,RD	;setting the first digit the original byte as 0	
+CP_ENDIF:
+	OR	R7,RA	;putting the original and the new together
+	STUFFB	R4,R7,R8;putting R7, the modified byte, back into the original line
+	SR	R9,4	;moving onto the next digit
+	ADDSI	R5,1
+
+	BR	CP_LOOP	
+
+CP_CHANGE_ODD:
+	AND	RA,RC
+	SL	RA,4	;putting the intended digit(odd) as the second digit 
+	AND	R7,RC	; setting the second digit of the original byte as 0
+	BR	CP_ENDIF
+
+CP_QUIT:
+	STORES	R4,R6	
+
+	ADDI	R2,R2,-ARSIZE
+	LOADS	PC,R2
+
+ARSIZE = 0
+GET_ROW:
+	;takes variable R6 the row
+	;uses variable RC as temp
+	;returns R6, the memory address of the row
+	MOVE	RC,R6
+	LIL	R6, GUI_START
+GET_ROW_LOOP:
+	TESTR 	RC
+	BZS	GET_ROW_QT
+	ADDSI	R6,4	
+	ADDSI	RC,-1
+
+	BR GET_ROW_LOOP
+GET_ROW_QT:
+	JUMPS	R1
+
+
+ARSIZE = 4
+DISPLAY_OBJECTS:
+	STORES	R1,R2
+	ADDI	R2,R2,ARSIZE
+
+;	LIL	R4, BALL_TEMPLATE
+;	LIL	R3, BALL_POS
+;	JSR	R1, DRAW_OBJECT
+
+	LIL	R4, YOU_OBJ
+	JSR	R1, DRAW_OBJECT
+
+	ADDI	R2,R2,-ARSIZE
+	LOADS	PC,R2	
+
+
+COORD_Y = 4
+REMAINING_LINES = 8 
+OBJECT_ADDRESS = 12
+TEMPLATE_ADDRESS= 16
+ARSIZE = 20
+DRAW_OBJECT:
+	;called by program cycle
+	;draws figures
+	;takes parameter R4, pointer to the  address of drawable object
+	STORES	R1,R2
+	ADDI	R2,R2,ARSIZE
+	LOADS	R4,R4
+	STORE	R4,R2, OBJECT_ADDRESS
+	;initialize the position of the figure
+	LOAD	R5,R4,DRAWABLE_X
+	LOAD	R6,R4,DRAWABLE_Y
+	STORE	R6,R2,COORD_Y
+	LOAD	R9,R4,DRAWABLE_TEMPLATE
+	
+	LOADS	RA, R9	;the first line of template is the number of lines
+	STORE	RA, R2, REMAINING_LINES	
+	ADDSI	R9, 4	;move R4 to the address of the first line of the template
+	STORE	R9, R2, TEMPLATE_ADDRESS
+
+DRAW_LOOP:
+	TESTR	RA
+	BZS	DRAW_QUIT	;quit if no more lines remain to draw
+
+	LOADS	R9,R9		;get the replacement digits
+	JSR	R1,CHANGE_PIXELS_IN_ROW
+
+	LOAD	R4,R2,OBJECT_ADDRESS
+	LOAD	R5,R4,DRAWABLE_X
+	LOAD	R6, R2, COORD_Y
+	ADDSI	R6, 1
+	STORE	R6,R2,COORD_Y
+
+	LOAD	R9, R2, TEMPLATE_ADDRESS
+	ADDSI	R9, 4
+	STORE	R9, R2, TEMPLATE_ADDRESS
+
+	LOADS	R9, R9
+
+	LOAD	RA,R2,REMAINING_LINES
+	ADDSI	RA, -1
+	STORE	RA,R2,REMAINING_LINES
+
+
+	BR	DRAW_LOOP
+DRAW_QUIT:
+	ADDI		R2,R2,-ARSIZE
+	LOADS		PC,R2
+
+
+ARSIZE=0
+INCREMENT_MAX_8:
+	;helper func to below
+	;increment number R5, R6 but without being bigger than 8
+	ADD	R5,R5,R6
+	CMPI	R5,8
+	BNS	INCREMENT_CONTINUE
+	ADDSI	R5,-8
+INCREMENT_CONTINUE:
+	JUMPS	R1
+
+ARSIZE =4
+MOVE_OBJECT:
+	STORES	R1,R2
+	;args R4: pointer to address of object
+	LOADS	R4,R4
+
+	;incrementing y
+	LOAD	R5,R4,DRAWABLE_Y
+	LOAD	R6,R4,DRAWABLE_VEL_Y
+	JSR	R1,INCREMENT_MAX_8
+	STORE	R5,R4,DRAWABLE_Y
+
+	;incrementing x
+	LOAD	R5,R4,DRAWABLE_X
+	LOAD	R6,R4,DRAWABLE_VEL_X
+	JSR	R1,INCREMENT_MAX_8
+	STORE	R5,R4,DRAWABLE_X
+
+	LOADS	PC,R2
+
+
+ARSIZE=4
+MOVE_OBJECTS:
+	STORES	R1,R2
+	ADDSI	R2,ARSIZE
+
+	LIL	R4,YOU_OBJ
+	JSR	R1, MOVE_OBJECT
+
+	ADDSI	R2,-ARSIZE
+	LOADS	PC,R2
+
+;this align directive is crucial
+	ALIGN	4
+EXECUTE_TEMPLATE:
+	JSRS	R1, R1
+	ALIGN	4
+
+
+ARSIZE=0
+RESTORE_COMMAND_ROW:
+	LIL	R7, EXECUTE_TEMPLATE	;the address that holds the template
+	LOADS	R5, R7	;loading the first line of the template into R5
+
+	LIL	R6, GUI_COMMAND	; GUI_END, where the loop should be 
+
+	LOADS	R8, R6		;R8 contains current contents of command row
+	LIW	R9, #FFFF0000
+	AND	R8, R9		; getting digits 5-8 of current contents
+	OR	R5, R8		; combining with the command template
+	STORES	R5,R6
+	JUMPS	R1
+
+ARSIZE = 8
+PROGRAM_CYCLE:
+	STORES	R1,R2
+	ADDI	R2,R2,ARSIZE
+
+
+	JSR	R1, INIT_GUI
+	JSR	R1, DISPLAY_OBJECTS
+	JSR	R1, MOVE_OBJECTS
+	JSR	R1, RESTORE_COMMAND_ROW
+
+	ADDI	R2,R2,-ARSIZE
+	
+	LIL	R1,PROGRAM_CYCLE
+	LIL	R3, GUI_COMMAND
+	JUMPS	R3
+
+
+ARSIZE	=	4
+
+MAIN:
+	STORES	R1,R2
+	ADDSI	R2,ARSIZE	; -- receiving sequence
+	
+	LIL	R6, #0602
+	LIL	R4, YOU_POS
+	STORES	 R6,R4
+
+	LIL	R6, #0105
+	LIL	R4, BALL_POS
+	STORES	R6,R4
+
+
+	LIL	R4, YOU_OBJ
+	LIL	R6, #12200	;initializing drawable ojects
+	STORES	R6, R4
+
+	LIS	R5, 2
+	LIS	R6,7
+	LIS	R7, -1
+	LIS	R8, 0
+	LIL	R9, YOU_TEMPLATE
+	JSR	R1, DRAWABLE_CONSTRUCTOR
+
+
+	LIL	R1,PROGRAM_CYCLE ;pre-setting R1 to PROGRAM_CYCLE
+				;the template will use R1 to jump to it
+	
+	LIL	R7, EXECUTE_TEMPLATE	;the address that holds the template
+	LOADS	R5, R7	;loading the first line of the template into R5
+	LIL	R6, GUI_COMMAND	; GUI_END, where the loop should be 
+	STORES	R5,R6	;storing the first line of the template	
+
+;	a previous iteration wrote two lines the template
+;	ADDSI	R7,4
+;	LOADS	R5,R7
+;	ADDSI	R6,4
+;	STORES	R5,R6
+	
+	
+	LIL	R6, GUI_COMMAND	
+	JUMPS	R6
+	
+	ADDSI	R2,-ARSIZE
+	LOADS	PC,R2
+	END
+	
+

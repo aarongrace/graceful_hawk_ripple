@@ -1,0 +1,179 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+; canvas object
+
+
+
+
+MONITOR_START = 768
+
+MACRO COL_BREAK_CHECK =comp, =start_x, check
+	CMPI	RA,comp
+	BNE	check
+	LIL	R3,start_x
+	MOVE	R4,RB
+	LIL	R1,PUTAT
+	JSRS	R1,R1
+	BR	RM_END_COL_BREAK_CHECK
+ENDMAC
+
+ARSIZE=4
+RECREATE_MONITOR:; |||||||||||||||||||||||||||||
+	C_S
+	LIL	RF,CANVAS
+	LIL	R3,C_UPPER_ROWS
+	SL	R3,2
+	ADD	RF,RF,R3 ;set RF to start of monitor rows
+
+	LIS	RB,0	;row
+;-------------------monitor scope--------------------
+RM_ROW_LOOP:
+	LOADS	RC,RF
+;---------------------row scope-----
+	LIS	RA,0	; bit
+	LIL	R3,M_LEFT_S	 ; where reg nums start
+	MOVE	R4,RB
+	TOSUBR	PUTAT
+RM_PRINT_ROW:	
+	; loading curr int into R3 and converting it from int to char
+	LOADS	R3,RC
+	CMPI	R3,10
+	BLT	RM_LOWER_THAN_10
+	; 10 plus "0" is ":", which is 7 away from "A"
+	ADDI	R3,R3,7
+RM_LOWER_THAN_10:
+	ADDI	R3,R3,"0"
+	TOSUBR	PUTCHAR
+
+	; after printing, increment vars
+	ADDSI	RC,4
+	ADDSI	RA,1
+
+;	CMPI	RA,8
+;	BNE	RM_END_COL_BREAK_CHECK
+;	LIL	R3,M_MID_COL
+;	MOVE	R4,RB
+;	LIL	R1,PUTAT
+;	JSRS	R1,R1
+;	BR	RM_END_COL_BREAK_CHECK
+;
+	COL_BREAK_CHECK M_LEFT_W, M_MID_S, MID_CHECK
+MID_CHECK:
+	COL_BREAK_CHECK M_LEFT_W + M_MID_W, M_THIRD_S, THIRD_CHECK
+THIRD_CHECK:
+	COL_BREAK_CHECK M_LEFT_W + M_MID_W + M_THIRD_W, M_RIGHT_S, RM_END_COL_BREAK_CHECK
+;	COL_BREAK_CHECK 16, M_MID_COL
+;	COL_BREAK_CHECK 8, M_MID_COL
+;	COL_BREAK_CHECK M_MID_COL + 8, M_THIRD_COL
+;	COL_BREAK_CHECK M_THIRD_COL + 8, M_RIGHT_COL
+
+RM_END_COL_BREAK_CHECK:
+	CMPI	RA,C_LOWER_DIGS
+	BLT	RM_PRINT_ROW
+
+	ADDSI	RF,4
+	ADDSI	RB,1
+	CMPI	RB,8
+	BLT	RM_ROW_LOOP
+	R_S
+
+
+
+
+ARSIZE=4
+REGISTER_WORDS_NUM = 2
+RECREATE_MEMORY: ;||||||||||||||||||||||||||||||||||||||||
+	C_S
+	LIL	R6,CANVAS
+	LIL	R5,MEMD_START
+
+	; RB=row
+	LIS	RB,0
+	LOADS	R7,R6	; load the first row
+RMEM_ROW_LOOP:
+	; loading the word to be displayed into R3
+	ADDI	R7,R7, REGISTER_WORDS_NUM * BYTES_IN_W
+	LOADS	R7,R7	; get the third word of the canvas row
+	STORES	R7,R5	; store it into memory
+	
+	ADDSI	R6,4
+	LOADS	R7,R6
+	ADDSI	R5,4
+	ADDSI	RB,1
+	CMPI	RB,C_UPPER_ROWS
+	BLT	RMEM_ROW_LOOP
+
+	TOSUBR  RESTORE_RETURN_ROW
+	R_S
+
+
+;this align directive is crucial
+	ALIGN	4
+EXECUTE_TEMPLATE:
+	JSRS	R1, R1
+	ALIGN	4
+
+ARSIZE=0
+RESTORE_RETURN_ROW:
+	LIL	R3, EXECUTE_TEMPLATE	;the address that holds the template
+	LOADS	R3, R3	;loading the first line of the template into R5
+
+	LIL	R6, MAIN_STOP	; MEMD_END, where the loop should be 
+
+	LOADS	R4, R6		;R8 contains current contents of command row
+	LIW	R5, #FFFF0000
+	AND	R4, R5		; getting digits 5-8 of current contents
+	OR	R3, R4		; combining with the command template
+	STORES	R3,R6
+	JUMPS	R1
+
+MACRO LOAD_R reg 
+	LOADS	R1,R2
+	LOAD	reg,R1,WORD_INCREMENT
+	ADDSI	R2,4
+ENDMAC
+
+
+RECREATE_REGISTERS:
+; recreating the register, this subr does not end conventionally
+; it jumps directly to MAIN_STOP, which then goes to program cycle
+	; set R6 to the row of MEMD
+	LIL	R2,CANVAS
+	ADDI	R2,R2,12	; start from R3, which is the fourth row
+WORD_INCREMENT=0
+	LOAD_R R3
+	LOAD_R R4
+	LOAD_R R5
+	LOAD_R R6
+	LOAD_R R7
+	LIL	R2,CANVAS
+WORD_INCREMENT=4
+	LOAD_R R8
+	LOAD_R R9
+	LOAD_R R10
+	LOAD_R R11
+	LOAD_R R12
+	LOAD_R R13
+	LOAD_R R14
+	LOAD_R R15
+
+	; loading the word to be displayed into R3
+	LOADCOM	R1,PROGRAM_CYCLE_AD
+	LIL	R2,MAIN_STOP
+	JUMPS	R2
+
+	INT	DISPLAY_CANVAS
+DISPLAY_CANVAS:; |||||||||||||||||||||||||||||||||||||
+; this subr has no AR and directly jumps back to the program cycle
+
+	TOSUBR	RECREATE_MONITOR	;recreate hawk monitor
+
+	TOSUBR	RECREATE_MEMORY		 ;recreate the mem 
+	TOSUBR	RECREATE_REGISTERS	 ;recreate the reg
+
+	END
+	
+
+

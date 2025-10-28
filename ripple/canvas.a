@@ -1,0 +1,447 @@
+	USE	"hawk.h"	
+	USE	"stdio.h"
+	USE	"stdlib.h"
+	USE	"common.h"
+; TODO	change canvas to a static common object
+; TODO	add decay function so that ripples leave a trace behind them, a right shift would do
+; canvas object
+; all funcs in this Module use RF for address of the canvas
+
+; each pixel is a word
+PX_SIZE	= 4
+PX_IN_COLUMN = 64
+
+
+CANVAS_SIZE = 1792
+
+	INT	INIT_CANVAS
+ARSIZE=8 ;||||||||||||||||||||||||||||||||||||||||||||||
+INIT_CANVAS:
+	C_S
+	; the canvas is a two-dimensional array with varying lengths
+
+	LIL	RA,CANVAS	;RA is used as pointer to curr canvas row
+	LIS	R8,0	; R8=curr_row
+
+;initializing the upper portion
+IC_UPPER_LP:		; allocating 3 words for each of the upper rows
+	TOSUBR_3	MALLOC,C_UPPER_COLUMNS * BYTES_IN_W
+	STORES	R3,RA	; create new row and add it
+
+	ADDSI	RA,BYTES_IN_W	; incrementing variables
+	ADDSI	R8,1
+	CMPI	R8,C_UPPER_ROWS
+	BLT	IC_UPPER_LP
+		
+	LIS	R8,0	; R8=curr_row
+IC_LOWER_LOOP:
+	TOSUBR_3	MALLOC,C_LOWER_DIGS * BYTES_IN_W ;R9 = cols to allocate
+	STORES	R3,RA	; store the pointer to the row
+
+	ADDSI	RA,BYTES_IN_W	; incrementing variables
+	ADDSI	R8,1
+	CMPI	R8,C_LOWER_ROWS
+	BNE	IC_LOWER_LOOP
+
+	;TOSUBR	FILL_CANVAS_S
+	R_S
+
+
+	INT	DRAW_ON_CANVAS
+ARSIZE=4
+DRAW_ON_CANVAS:
+	C_S
+	; takes R3=hex to draw, R4=x,R5=y
+	TESTR	R5
+	BLT	DCANVAS_MONITOR
+	
+	TESTR	R4
+	BLT	DCANVAS_REGISTER
+	TOSUBR	DRAW_ON_MEMORY
+
+DCANVAS_REGISTER:
+	TOSUBR	DRAW_ON_REGISTER
+
+DCANVAS_MONITOR:
+	TOSUBR	DRAW_ON_MONITOR
+DCANVAS_RETURN:
+	R_S
+
+	
+
+MEMORY_ADD_W=8
+MEMORY_DIGS=8
+ARSIZE=4
+DRAW_ON_MEMORY:
+	; takes R3=hex to draw, R4=x,R5=y
+
+	CMPI	R5, C_UPPER_ROWS
+	BGE	DOR_QT		; quit if y >= 8
+
+	CMPI	R4, MEMORY_ADD_W	; if (x < memory_add_w) return
+	BLT	DMEM_RETURN
+
+	CMPI	R4, MEMORY_ADD_W + MEMORY_DIGS
+	BGE	DMEM_RETURN
+
+	ADDSI	R5,1-C_UPPER_ROWS	; y = 7 -y
+	NEG	R5,R5
+	SL	R5,2
+	LIL	R7,CANVAS	; loads canvas obj
+	ADD	R7,R7,R5
+	LOADS	R7,R7		; load canvas row
+	ADDI	R7, R7, C_REG_COLUMNS * BYTES_IN_W; get word for mem in row
+
+	ADDI	R4, R4,-15 	; convert absolute x coord to pos in word	
+	NEG	R4,R4 ; the equation is essentially x = x -8; x = 7-x
+	TOSUBR	SET_DIG_IN_WORD
+
+DMEM_RETURN:
+	BR	DCANVAS_RETURN
+
+
+;	INT	DEBUG
+
+AR_CHAR=4
+OTHER_DIGIT=8
+ARSIZE=12
+SET_DIG_IN_WORD: ;||||||||||||||||||||||||||||||||||||||||
+;takes R3=char,R4=pos in byte starting to the right from 0,R7=address of word
+;returns nothing
+	STORE	R3,R2,AR_CHAR
+	C_S
+	; first step, get byte pos into R4, is_odd into R5
+	MOVE	R8,R4	; move the byte pos to R7
+	LIS	R5,#1
+	AND	R5,R8
+	SR	R8,1
+	; get the word
+	LOADS	R6,R7
+	EXTB	R3,R6,R8
+	; determine parity
+	TESTR	R5
+	BZS	SDIW_IS_EVEN
+	;the digit to change is at at odd position, 
+		;which is to say second number in the byte
+	LIL	R5,#0F
+	AND	R5,R3	;get the first digit of the byte
+	STORE	R5,R2,OTHER_DIGIT
+
+	LIL	R4,#F0
+	AND	R4,R3	;get the original digit
+	SR	R4,BYTES_IN_W	;shift it to the right	
+	LOAD	R3,R2,AR_CHAR-ARSIZE
+	TOSUBR	OVERLAP_NUMBERS
+
+	SL	R3,BYTES_IN_W
+	LOAD	R5,R2,OTHER_DIGIT
+	OR	R3,R5
+	BR	SDIW_QUIT
+SDIW_IS_EVEN:
+	;the digit to change is at at even position, 
+		;which is to say first number in the byte
+	LIL	R5,#F0
+	AND	R5,R3
+	STORE	R5,R2,OTHER_DIGIT
+
+	LIL	R4,#0F
+	AND	R4,R3	;get the original digit
+	LOAD	R3,R2,AR_CHAR-ARSIZE
+	TOSUBR	OVERLAP_NUMBERS
+
+	LOAD	R5,R2,OTHER_DIGIT
+	OR	R3,R5
+SDIW_QUIT:
+	STUFFB	R6,R3,R8
+	STORES	R6,R7
+	R_S
+
+	
+
+
+REG_RIGHT_COL_START = -4
+REG_RIGHT_COL_END = -11
+REG_LEFT_COL_START = -18
+REG_LEFT_COL_END = -25
+ARSIZE=4 
+DRAW_ON_REGISTER: ;||||||||||||||||||||||||||||||||||||||||
+	; takes R3=hex to draw, R4=x,R5=y
+	CMPI	R5, C_UPPER_ROWS
+	BGE	DOR_QT		; quit if y >= 8
+
+
+	; check for left column first
+	CMPI	R4,REG_LEFT_COL_END
+	BLT	DOR_QT		; quit if x < -25
+
+	CMPI	R4,REG_LEFT_COL_START
+	BLE	DOR_LEFT_COLUMN	; to first column if x <= -18
+
+	; then check for right column
+	CMPI	R4,REG_RIGHT_COL_END
+	BLT	DOR_QT		; quit if x < -11
+
+	CMPI	R4,REG_RIGHT_COL_START
+	BLE	DOR_RIGHT_COLUMN	; to right column if x <= -4
+	BR	DOR_QT		; quit if x > -4
+DOR_LEFT_COLUMN:
+	NEG	R4,R4	
+	ADDI	R4,R4,REG_LEFT_COL_START	; x = -x - 17
+	LIS	R6,0	; get the left column
+	BR	DOR_PREPARE_FOR_SET_DIG
+DOR_RIGHT_COLUMN:
+	ADDI	R4,R4,4
+	NEG	R4,R4	; x = -x -4
+	LIS	R6,BYTES_IN_W	; get the right column
+	BR	DOR_PREPARE_FOR_SET_DIG	
+
+DOR_PREPARE_FOR_SET_DIG:	; set params for SET_DIG_IN_WORD
+	ADDSI	R5,1-C_UPPER_ROWS	; y = 7 -y
+	NEG	R5,R5
+	SL	R5,2
+	LIL	R7,CANVAS	; loads canvas obj
+	ADD	R7,R7,R5
+	LOADS	R7,R7		; load canvas row
+	ADD	R7,R7,R6  ; get word for the right reg column
+
+	TOSUBR	SET_DIG_IN_WORD
+DOR_QT:
+	BR	DCANVAS_RETURN
+
+
+;the left most digit of each column, counting from the left
+SECOND_COL_L = M_LEFT_W	; should be 9
+THIRD_COL_L = SECOND_COL_L + M_MID_W	;19
+FOURTH_COL_L = THIRD_COL_L + M_THIRD_W	; 27
+GAP1 = M_MID_S - M_LEFT_S - M_LEFT_W ; 3
+GAP2 = M_THIRD_S - M_MID_S - M_MID_W	; 2
+GAP3 = M_RIGHT_S - M_THIRD_S - M_THIRD_W ; 1
+M_START_Y = 4
+ARSIZE=4
+MONITOR_DIGITS_LEFT_OF_AXIS=25
+DRAW_ON_MONITOR: ;||||||||||||||||||||||||||||||||||||||||
+	; takes R3=hex to draw, R4=x,R5=y
+	; to convert the coordinates, first add 24
+	ADDI	R4,R4,MONITOR_DIGITS_LEFT_OF_AXIS
+
+;----------prepare y
+	NEG	R5,R5	; invert R5 first
+	ADDSI	R5,-M_START_Y	; subtract the gap from it
+	TESTR	R5
+	BLT	DMON_QT	; quit if y is less than 0
+
+	CMPI	R5,C_LOWER_ROWS
+	BGE	DMON_QT	; quit if y is more or equal to 8
+
+
+;----------prepare x
+	TESTR	R4
+	BLT	DMON_QT	; quit if x less than 0
+	
+	CMPI	R4,MONITOR_DIGITS_LEFT_OF_AXIS + 16
+	BGE	DMON_QT	; quit if x more than 40
+	
+	; first column
+	CMPI	R4,SECOND_COL_L
+	BLT	DMON_X_READY	; if x is in the first column
+	
+	CMPI	R4,SECOND_COL_L + GAP1 ; 9 + 3 = 12 
+	BLT	DMON_QT	; if x falls between the gap
+	ADDSI	R4,-GAP1
+
+	; second column
+	CMPI	R4,THIRD_COL_L	; 19
+	BLT	DMON_X_READY	; if x is in the second column
+	
+	CMPI	R4,THIRD_COL_L + GAP2 ; 19 + 2 = 21
+	BLT	DMON_QT	; if x falls between the second gap
+	ADDSI	R4,-GAP2	; -2
+
+
+	; third column
+	CMPI	R4,FOURTH_COL_L	; 27
+	BLT	DMON_X_READY	; if x is in the third column
+	
+	CMPI	R4,FOURTH_COL_L + GAP3 ; 27 + 1 = 28
+	BLT	DMON_QT	; if x falls between the third gap
+	ADDSI	R4,-GAP3
+
+
+	; fourth column
+	CMPI	R4,C_LOWER_DIGS; 35
+	BLT	DMON_X_READY	; if x is in the fourth column
+	BR	DMON_QT		; to catch exceptions
+DMON_X_READY:
+;------both y and x are prepared
+	ADDI	R5,R5,C_UPPER_ROWS
+	SL	R5,2 ; change (y+8) into number of bytes 
+	LIL	R7,CANVAS
+	ADD	R7,R7,R5	; get the right canvas row pointer
+	LOADS	R7,R7		; get the canvas row
+
+	SL	R4,2	; 
+	ADD	R7,R7,R4
+	
+	LOADS	R4,R7
+	
+	TOSUBR	OVERLAP_NUMBERS
+
+	STORES	R3,R7		; store the char into the digit on the row
+
+DMON_QT:
+	LIL	R1,DCANVAS_RETURN
+	JUMPS	R1
+
+
+ARSIZE=4
+OVERLAP_NUMBERS:
+	;takes R3,R4 
+	;wipes out R5,R6
+	;returns R3
+	TESTR	R4	; if R4 is 0 return
+	BZS	ON_QT	 ; no need to check R3, because it shouldn't be zero
+
+	CMP	R3,R4
+	BGT	ON_R3_BIGGER
+	MOVE	R5,R3
+	MOVE	R3,R4
+	MOVE	R4,R5	; exchange numbers so that R3 is bigger
+ON_R3_BIGGER:
+
+	CMPI	R4,1
+	BEQ	ON_R4_IS_1
+	SR	R4,1
+ON_R4_IS_1:		; leave R4 be if it's 1
+
+	ADD	R3,R3,R4
+	CMPI	R3,#F
+	BLE	ON_QT
+	LIL	R3,#F
+ON_QT:
+	JUMPS	R1
+
+
+ARSIZE=4  ;|||||||||||||||||||||||||||||||||||||||||||||
+	INT	LOWER_CANVAS_VALUES
+LOWER_CANVAS_VALUES:
+	C_S
+	LIL	RF,CANVAS
+
+	LIS	R8,0	; R8=curr_row
+LCV_UPPER_LOOP:
+;---------------------------------upper scope
+	LIL	R9,0 ;R9 = column
+	LOADS	RB,RF	;RB is used as pointer to canvas row
+;---------------------------row scope
+LCV_ROW_LOOP:
+	LOADS	RA,RB
+;	LIW	RA,#01234567	; for testing only
+;------------------one column scope
+	LIS	R7,0	; R7=curr_byte
+LCV_CHANGE_EACH_BYTE:
+	EXTB	R3,RA,R7
+	; now we need to separate the first and second digits
+	LIL	R4,#0F
+	LIL	R5,#F0
+
+	AND	R4,R3
+	SR	R4,1	; divide the first digit by two
+
+	AND	R5,R3
+	SR	R5,1	; divide the second digit by two
+	LIL	R3,#F0	
+	AND	R3,R5	; and then get rid of any spill over
+
+	OR	R3,R4	; combine them
+	STUFFB	RA,R3,R7
+	ADDSI	R7,1
+	CMPI	R7,BYTES_IN_W
+	BLT	LCV_CHANGE_EACH_BYTE
+;----------------end column scope
+	STORES	RA,RB	; store the char to the col
+	ADDSI	RB,4 ;	CMP	R7,R9
+	ADDSI	R9,1
+	CMPI	R9, C_UPPER_COLUMNS
+	BLT	LCV_ROW_LOOP
+;---------------------------end row scope
+	ADDSI	RF,4	; moving to next row
+	ADDSI	R8,1 
+	CMPI	R8,C_UPPER_ROWS	 ; if R8 is 8, switch to col numbers for monitor
+	BLT	LCV_UPPER_LOOP
+;---------------------------------end upper scope
+
+	LIS	R8,0	; curr lower row
+LCV_LOWER_LOOP:
+;---------------------------------LOWER scope
+	LIS	R9,0 ;R9 = digit
+	LOADS	RB,RF	;RB is used as pointer to canvas row
+;---------------------------row scope
+LCV_LOWER_ROW_LOOP:
+	LOADS	R3,RB
+;	LIL	R3,#5	; for testing only
+;------------------digit scope
+	SR	R3,1	; divide the first digit by two
+	STORES	R3,RB	; store the char to the col
+;----------------end digit scope
+	ADDSI	RB,4 ;	CMP	R7,R9
+	ADDSI	R9,1
+	CMPI	R9, C_LOWER_DIGS
+	BLT	LCV_LOWER_ROW_LOOP
+;---------------------------end row scope
+	ADDSI	RF,4	; moving to next row
+	ADDSI	R8,1 
+	CMPI	R8,C_LOWER_ROWS	 ; if R8 is 8, switch to col numbers for monitor
+	BLT	LCV_LOWER_LOOP
+;---------------------------------end LOWER scope
+
+
+	R_S
+
+END
+;-----------------------------------for testing
+	INT MAIN
+	S	DRAW_ON_CANVAS
+MAIN:
+	LIS	R3,F
+	LIS	R4,3
+	LIS	R5,3
+	TOSUBR DRAW_ON_CANVAS
+
+	END
+
+
+ARSIZE=4
+TEST_DRAW:
+	C_S
+	TOSUBR_345 DRAW_ON_CANVAS,#F,13,5
+	TOSUBR_345 DRAW_ON_CANVAS,#E,12,4
+	TOSUBR_345 DRAW_ON_CANVAS,#D,11,3
+
+	TOSUBR_345 DRAW_ON_CANVAS,#A,-11,5
+	TOSUBR_345 DRAW_ON_CANVAS,#B,-17,1
+	TOSUBR_345 DRAW_ON_CANVAS,#1,-18,2
+	TOSUBR_345 DRAW_ON_CANVAS,#2,-19,3
+	TOSUBR_345 DRAW_ON_CANVAS,#3,-20,4
+	TOSUBR_345 DRAW_ON_CANVAS,#4,-21,5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-24,4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-25,3
+	TOSUBR_345 DRAW_ON_CANVAS,#C,-7,3
+	TOSUBR_345 DRAW_ON_CANVAS,#D,-6,4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-5,5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-4,6
+
+	TOSUBR_345 DRAW_ON_CANVAS,#F,13,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#E,12,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#D,11,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#A,-11,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#B,-17,-1
+	TOSUBR_345 DRAW_ON_CANVAS,#1,-18,-2
+	TOSUBR_345 DRAW_ON_CANVAS,#2,-19,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#3,-20,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#4,-21,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#C,-7,-3
+	TOSUBR_345 DRAW_ON_CANVAS,#D,-6,-4
+	TOSUBR_345 DRAW_ON_CANVAS,#E,-5,-5
+	TOSUBR_345 DRAW_ON_CANVAS,#F,-4,-6
+	R_S
+
