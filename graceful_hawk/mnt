@@ -1,0 +1,1 @@
+/usr/bin/make compiler=cc && ./hawk ../ripple/ripples.o

@@ -1,0 +1,2867 @@
+# shell archive created by dwjones on Mon Dec 11 04:57:22 PM CST 2023
+
+# To install this software on a UNIX compatable system (Linux or MacOS):
+#  1) create a directory (e.g. with the shell command mkdir project)
+#  2) change to that directory (e.g. with the command cd project),
+#  3) direct the remainder of this text to sh (e.g. sh < ../thisfile).
+# This will make sh create files in the new directory; it will do
+# nothing else (if you're paranoid, you should scan the following text
+# to verify this before you follow these directions).  Then read README
+# in the new directory for additional instructions.
+
+# On other systems, extract files from this file using a text editor.
+# Each file is bracketed between two lines of xxxx.
+# The first line of xxxx contains a cat command giving the file name.
+
+cat > README <<\xxxxxxxxxx
+# Hawk
+
+The Hawk emulator is an emulator for a 32-bit RISC machine written in C
+designed to run under Linux.  It has been in use since 1996 as a tool
+for teaching introductory computer organization and assembly language
+programming.
+
+## Installation
+
+Use `make compiler=cc` from the command line.  This will read `Makefile`
+and produce an executable named `hawk`.  You can set compler options here,
+for example, use `make 'compiler=cc -O'` to make the compiler generate
+more optimal code.
+
+Variables set in the makefile itself allow you to set the amount of RAM
+and ROM on your emulated machine, and they allow you to select between
+a full configuration of the Hawk emulator and the Sparrowhawk subset.
+
+For more detail, see `Makefile`.  Note:  The Hawk emulator uses the
+`curses` library.  If this is not installed on your system, you will need
+to get it before using Make.
+
+## Use
+
+From the command line, type `hawk testfile` to launch the Hawk emulator
+with `testfile` loaded in memory (RAM, ROM or both).  The emulator always
+starts in halt state with the program counter set to zero.
+
+The test file supplied with this distribution contains the scrambled fragments
+of a limerick.  When run, the program sorts the fragments into order and
+outputs the resulting limerick.  To produce additional object files, you
+will need to use the SMAL assembler.
+
+Multiple object files may be specified on the command line; all of them
+will be loaded in the order specified.  If any of the files load the same
+memory location, they will overlay each other, leftmost file first.
+
+The object code format expected is that produced by the SMAL assembler
+or linker.
+
+Once the loading is complete, the emulator will display the CPU state in the
+top of the terminal window, leaving the bottom mapped to the emulator's
+video RAM.  The terminal window may not be resized after the emulator is
+launched.
+
+When halted, the emulator responds to single letter commands.  These are
+described in a brief one-line help message.  The commands are:
+
+* **`r`** -- run until _pc_ = _0_ or until _pc_ = _break_
+* **`s`** -- single step (follows branches and calls)
+* **`n`** -- set _break_ to next instruction, run (e.g. until subroutine return)
+* **`q`** -- quit
+* **hexadecimal digits** -- shifted into _n_, a command parameter
+* **`m`** -- show memory around address _n_
+* **`+`** -- scroll the memory display to increasing addresses
+* **`-`** -- scroll the memory display to decreasing addresses
+* **`t`** -- toggle the memory display between hexadecimal and disassembly
+* **`p`** -- set _break_ = _n_ and run
+* **`>`** -- increment _break_
+* **`<`** -- decrement _break_
+* **`i`** -- set _break_ = _pc_ and run (typically one loop iteration)
+* **`z`** -- set _refresh_ = _n_ (memory cycles between display updates)
+
+## Files in this distribution
+
+* `README`     -- this file
+* `Makefile`   -- used to make the emulator (includes brief instructions)
+* `bus.h`      -- the "communication bus" between emulator components
+* `irfields.h` -- instruction register field definitions
+* `cpu.c`      -- the emulator CPU -- the main program
+* `console.h`
+* `console.c`  -- the console interface for the emulator
+* `float.h`
+* `float.c`    -- the floating point coprocessor
+* `powerup.h`
+* `powerup.c`  -- code to "power up" the emulator (includes the loader)
+* `showop.h`
+* `showop.c`   -- support for symbolic dumps of Hawk object code
+* `testfile`   -- a loadable object file to demonstrate the emulator
+
+## Related Material
+
+* [http://www.cs.uiowa.edu/~dwjones/arch/hawk] -- the Hawk CPU Manual
+* [http://www.cs.uiowa.edu/~dwjones/assem/notes] -- course notes
+* [http://www.cs.uiowa.edu/~dwjones/cross/SMAL32] -- the SMAL assembler manual
+* [http://www.cs.uiowa.edu/~dwjones/arch/hawk/headers] -- SMAL Hawk header files
+* [http://www.cs.uiowa.edu/~dwjones/arch/hawk/monitor.txt] -- the SMAL Hawk
+  monitor and subroutine library
+
+Note that the Hawk emulator's loadable object file format is fully documented
+in Section 9.1 of the Hawk CPU manual.
+
+## Author
+
+Douglas W. Jones
+
+[http://www.cs.uiowa.edu/~dwjones/]
+```
+ Department of Computer Science
+ University of Iowa
+ Iowa City, IA  52242
+ USA
+```
+
+## Copyright
+
+All of the files included here may be redistributed freely, and there
+are no restrictions on alteration and additional redistribution so long as:
+
+* the original author or authors are given credit for their contributions.
+* any altered files contain brief revision notes explaining the alteration.
+* any altered files identify the author of the revision.
+* this file is included in the redistribution, with all authors identified.
+* these terms are preserved in the redistribution.
+
+## Revision history
+
+* 9 Nov. 2023  -- DWJ created new `README` file.
+* 11 Dec. 2023 -- DWJ added keyboard interrupt and CPU-polite KBDSTAT polling.
+xxxxxxxxxx
+
+cat > Makefile <<\xxxxxxxxxx
+# make a Hawk emulator
+# Author:  Douglas W. Jones
+#
+# Instructions:
+#
+#   1, configure your emulator by editing this file, as directed below
+#   2, make compiler=cc
+#   3, make clean to remove compilation temporaries
+
+##########################################################################
+#
+# Machine Configuration Section:
+#
+#   In effect, the skeleton of the emulator is an bus, into which you
+#   plug option boards for I/O devices and other machine components.
+#
+#   RULE:  To select an option, follow the directions.
+#          If, on real hardware, you'd have to jumper something on the
+#          circuit board, then you must edit the source file for the
+#          option and select the jumperable feature there.
+
+#---- exactly one of the following definitions must be uncommented
+
+# the Hawk cpu
+cpu = cpu.o float.o
+cpulib = -lm
+
+#---- The following may be uncommented to select the Sparrowhawk CPU subset
+# subset = -DSPARROWHAWK
+
+#---- exactly one of the following definition pairs must be uncommented
+
+# the Hawk console
+console = console.o showop.o
+conslib = -lcurses -ltermcap
+
+#---- exactly one of the following definition pairs must be uncommented
+
+# the Hawk ROM initializer
+powerup = powerup.o
+
+#---- Memory; on a real machine, the amount of memory can be selected
+#     as any multiple of 0x10000 up to 0xFFFF0000 (a highly unlikely upper
+#     limit).  This emulator does not allow for non-contiguous memory fields,
+#     nor does it allow ROM to start anywhere but location zero.
+#     The memory and ROM size is specified in bytes!
+
+#---- exactly one of the following definitions must be uncommented
+
+MEMORY = -DMAXMEM=0x20000 -DMAXROM=0x10000
+
+##########################################################################
+#
+# Patch together the list of object files and the list of compiler
+# options from the above
+
+options =                                     $(MEMORY) $(subset) -O
+objects =    $(cpu)    $(console) $(powerup)
+libraries =  $(cpulib) $(conslib)
+
+
+##########################################################################
+#
+# Override make's complex understanding of file suffixes and make sure
+# that all c compiles use the options we've set up.
+
+.SUFFIXES: .o .c
+
+.c.o:
+	$(compiler) -c $(options) $*.c
+
+##########################################################################
+#
+# Actual makefile dependencies for the emulator
+#
+# Note that, since this makefile contains the option settings,
+# it references itself!
+
+hawk: $(objects)
+	$(compiler) -o hawk $(objects) $(libraries)
+
+$(objects): bus.h Makefile
+cpu.o: irfields.h float.h powerup.h console.h
+float.o: float.h
+powerup.o: powerup.h
+console.o: console.h showop.h float.h
+showop.o: showop.h irfields.h
+
+##########################################################################
+#
+# Secondary utilities
+
+# make clean to delete the object files, saving disk space
+clean:
+	rm -f *.o
+xxxxxxxxxx
+
+cat > bus.h <<\xxxxxxxxxx
+/* File: bus.h
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date:    Aug 1996
+   Revised: Aug 22, 2008 -- fix to use stdint.h definitions
+   Revised: Aug 21, 2011 -- add interface to floating point coprocessor
+   Revised: Nov  8, 2023 -- minor changes to coprocessor masks, (WORD)casting
+   Revised: Dec 11, 2023 -- interrupt support
+   Language: C (UNIX)
+   Purpose:
+	Declarations of bus lines shared by the hawk CPU and peripherals.
+	This is not, strictly speaking, a real bus layout,
+	but rather, it is a set of declarations driven by the
+	needs of system emulation.
+   Constraints:
+	When included in the main program, MAIN must be defined.
+	When included elsewhere, MAIN must not be defined.
+	In all cases <stdint.h> must be included for uintX_t types.
+*/
+
+
+/* The following trick puts extern on definitions if not in the main program
+*/
+#ifdef MAIN
+#define EXTERN
+#else
+#define EXTERN extern
+#endif
+
+
+/*********************/
+/* Hawk data formats */
+/*********************/
+
+#define WORD uint32_t
+#define SWORD int32_t
+#define HALF uint16_t
+#define BYTE uint8_t
+
+
+/******************************************/
+/* Utility information needed by emulator */
+/******************************************/
+
+/* maximum length of a sensible file name
+ */
+#define NAME_LENGTH 120
+
+/* count of memory cycles; cycles is incremented with every memory
+   reference and causes console interrupts.  the sum cycles+morecycles
+   is the true cycle count.  recycle determines frequency of console update
+ */
+EXTERN WORD cycles;
+EXTERN WORD morecycles;
+EXTERN WORD recycle;
+
+/* memory address compared with pc to stop cpu at breakpoints
+ */
+EXTERN WORD breakpoint;
+
+
+/*****************************************************/
+/* Globals that really aren't really part of the bus */
+/*****************************************************/
+
+EXTERN char * progname; /* name of program itself (argv[0]) */
+
+
+/**********/
+/* Memory */
+/**********/
+
+/* This emulator does not allow for non-contiguous memory fields.
+   Memory runs from 0 to MAXMEM-1; MAXMEM should be a multiple of 0x10000,
+   and should never be as great as 0xFFFF0000 (a highly unlikely limitation).
+   Memory from location 0 to MAXROM-1 is read-only and may not be modified
+   at run-time; MAXROM should be a multiple of 0x10000.
+*/
+
+/* MAXMEM is specified in bytes and provided by Makefile */
+/* MAXROM is specified in bytes and provided by Makefile */
+
+/* note that memory is word addressable */
+EXTERN WORD m[ MAXMEM >> 2 ];
+
+/* memory mapped I/O owns the top 16 meg of the address space */
+#define IOSPACE   0xFF000000UL
+
+/* the memory mapped display device -- give it a megabyte */
+#define DISPBASE  0xFF000000UL
+#define DISPLIMIT 0xFF0FFFFFUL
+
+/* the minimalist keyboard */
+#define KBDBASE   0xFF100000UL
+#define KBDLIMIT  0xFF10000FUL
+
+/* allow for an IBM PC style I/O address space is addressed in the last 256Kb
+   so that least sig 2 bits of address are ignored, and next 16 bits are
+   the 16 bit address of a PC-style in or out command */
+
+/**************************/
+/* Memory Management Unit */
+/**************************/
+
+/* TLB size and mask to select bits of TLB index */
+#define TLBMASK 0xF
+#define TLBSIZE (TLBMASK+1)
+
+/* Fields of virtual and physical addresses */
+#define PAGEBITS  12
+#define PAGEFIELD (((WORD)0xFFFFFFFFUL << PAGEBITS) & (WORD)0xFFFFFFFFUL)
+#define WORDFIELD ((~PAGEFIELD) & (WORD)0xFFFFFFFFUL)
+
+/* Access rights bits */
+#define ARGLOBAL 0x20
+#define ARCACHE  0x10
+#define ARREAD   0x08
+#define ARWRITE  0x04
+#define AREXEC   0x02
+#define ARVALID  0x01
+
+/********************************/
+/* Trap and Interrupt Vectoring */
+/********************************/
+
+/* All trap addresses must be less than MAXMEM!
+*/
+
+#define RESTART_TRAP      (WORD)0x00000000UL  /* on powerup */
+#define BUS_TRAP          (WORD)0x00000010UL  /* illegal physical address */
+#define INSTRUCTION_TRAP  (WORD)0x00000020UL  /* illegal opcode */
+#define PRIV_TRAP         (WORD)0x00000030UL  /* privilege violation */
+#define MMU_TRAP          (WORD)0x00000040UL  /* mmu fault */
+#define CO_TRAP           (WORD)0x00000050UL  /* missing coprocessor */
+
+#define INTERRUPT_TRAP    (WORD)0x00000080UL  /* interrupts use top half */
+
+#define TRAP_VECTOR_STEP  (WORD)0x00000010UL  /* spacing of vector entries*/
+
+/*******************************/
+/* Generally visible registers */
+/*******************************/
+
+/* All of the following are visible outside the CPU in some context or
+   another, either to some I/O device or to the front panel.
+*/
+EXTERN WORD r[16];  /* the general purpose registers */
+EXTERN WORD pc;     /* the program counter */
+EXTERN WORD costat; /* the coprocessor status register */
+EXTERN WORD cocc;   /* condition codes set by coprocessor for COGET */
+EXTERN WORD psw;    /* the processor status word */
+EXTERN WORD tpc;    /* saved pc after a trap */
+EXTERN WORD tma;    /* saved memory address after a trap */
+EXTERN WORD tsv;    /* trap save location */
+EXTERN WORD irq;    /* interrupt request */
+
+/* costat fields
+*/
+#define COOP   ((costat & (WORD)0x0F000) >> 12)
+#define COSEL  ((costat & (WORD)0x00700) >> 8)
+#define COENAB (WORD)0x000FE
+/* each coprocessor defines its own coprocessor enable bit */
+#define COFPENAB (WORD)0x00002
+#define COMASK (0xF700 | COENAB)
+
+/* psw fields
+*/
+#define N  (WORD)0x00000008UL
+#define Z  (WORD)0x00000004UL
+#define V  (WORD)0x00000002UL
+#define C  (WORD)0x00000001UL
+#define CC (N|V|Z|C)
+#define CBITS (WORD)0x0000FF00UL
+#define LEVEL (WORD)0xF0000000UL
+#define OLEVEL (WORD)0x0F000000UL
+
+/* priority interrupt scheme
+   there are several ways to make the level field establish interrupt priority.
+   16 levels are possible but the top bit enables the MMU.
+   If the bottom 3 bits establish interrupt priority, we could
+   -- each bit enables one interrupt, with software priorities 111 011 001 000.
+   -- the three bits are a numeric level 111 down to 000.  We do that here.
+   note:    If only levels 7, 3 and 1 are used, these are compatible.
+*/
+#define PRIORITY ((psw >> 28) & 7)
+
+/* irq fields
+   warning: if defined, IRQ0 is nonmaskable and will hang CPU, so don't!
+   rule:    IRQi is higher priority IRQj if i < j
+   note:    if only IRQ1, IRQ2 and IRQ4 are used, hardware can be simplified
+*/
+#define IRQ1  (WORD)0x00000002UL
+#define IRQ2  (WORD)0x00000004UL
+#define IRQ3  (WORD)0x00000008UL
+#define IRQ4  (WORD)0x00000010UL
+#define IRQ5  (WORD)0x00000020UL
+#define IRQ6  (WORD)0x00000040UL
+#define IRQ7  (WORD)0x00000080UL
+xxxxxxxxxx
+
+cat > console.h <<\xxxxxxxxxx
+/* File: console.h
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Nov. 7, 2019
+   Purpose: Hawk Emulator console support interface;
+*/
+
+/* assumes prior inclusion of <stdint.h> and "bus.h" */
+
+/*************************
+ * memory mapped display *
+ *************************/
+
+void dispwrite(WORD addr, WORD val);
+/* addr is relative to display's address range */
+/* val is value to display */
+
+WORD dispread(WORD addr);
+/* addr is relative to display's address range */
+
+/**************************
+ * memory mapped keyboard *
+ **************************/
+
+void kbdwrite(WORD addr, WORD val);
+/* addr is relative to keyboard's address range */
+/* val is word to display */
+
+WORD kbdread(WORD addr);
+/* addr is relative to keyboard's address range */
+
+/********************
+ * console function *
+ ********************/
+
+void console_startup();
+/* startup, called from main */
+
+void console();
+/* console, called from main when countdown < 0 or halt */
+xxxxxxxxxx
+
+cat > float.h <<\xxxxxxxxxx
+/* File: float.h
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Aug. 21, 2011
+   Revised:  Nov. 8, 2023 - added float_acc for front panel display
+
+   Language: C (UNIX)
+   Purpose: Hawk floating point coprocessor interface definitions 
+*/
+
+/* assumes prior inclusion of <stdint.h> and "bus.h" */
+
+double float_acc( int i );
+        /* read-only access to floating point accumulators for front panel */
+
+void float_coset( int reg, WORD val );
+        /* coprocesor operation initiated by CPU */
+
+WORD float_coget( int reg );
+        /* coprocesor operation initiated by CPU */
+xxxxxxxxxx
+
+cat > irfields.h <<\xxxxxxxxxx
+/* File: irfields.h
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Dec 2007
+   Language: C (UNIX)
+   Purpose: Declarations of fields of the instruction register
+   Constraints: When included, ir must be defined.
+*/
+
+/* ir fields |S1 S2 OP DST| or |CONST OP DST| */
+#define OP    ((ir >>  4) & 0xF)
+#define DST   ((ir      ) & 0xF)
+#define S1    ((ir >> 12) & 0xF)
+#define OP1   S1
+#define S2    ((ir >>  8) & 0xF)
+#define SRC   S2
+#define X     S2
+#define OP2   S2
+#define CONST ((ir >>  8) & 0xFF)
+xxxxxxxxxx
+
+cat > powerup.h <<\xxxxxxxxxx
+/* File: powerup.h
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Nov. 7, 2019
+   Language: C (UNIX)
+   Purpose: Hawk Emulator Power-On support interface;
+*/
+
+/* assumes prior inclusion of <stdint.h> and "bus.h" */
+
+void powerup(int argc, char **argv);
+xxxxxxxxxx
+
+cat > showop.h <<\xxxxxxxxxx
+/* File: showop.h
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Nov. 7, 2019
+
+   Language: C (UNIX) with -lcurses option
+   Purpose: Hawk Emulator, interface to disassembler for HAWK opcodes
+*/
+
+/* assumes prior inclusion of <stdint.h> and "bus.h" */
+
+/*******************************
+ * disassemble one instruction * 
+ *******************************/
+
+int showop( WORD a );
+/* decode the opcode in m[a] and output it; returns address increment */
+
+int sizeofop( WORD a );
+/* decode the opcode in m[a] and return address increment */
+xxxxxxxxxx
+
+cat > console.c <<\xxxxxxxxxx
+/* File: console.c
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Mar. 6, 1996
+   Revised: Feb. 27, 2002 - replace BCDGET with EX3ADJ instruction
+   Revised: Mar.  1, 2002 - add SSQADJ
+   Revised: Mar. 13, 2002 - add BTRUNC
+   Revised: Apr. 23, 2002 - strip out showop() into showop.c
+   Revised: Aug. 24, 2008 - flip byte order in IR, add n console command
+   Revised: Nov.  8, 2023 - added display of costat, fp accumulators
+   Revised: Dec. 11, 2023 - make interrupts work, make polling KBDSTAT polite
+
+   Language: C (UNIX) with -lcurses option
+   Purpose: Hawk Emulator console support;
+*/
+
+#include <inttypes.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <curses.h>
+#include <signal.h>
+/*#include <sys/ioctl.h>*/
+
+#include "bus.h"
+#include "float.h"
+#include "showop.h"
+#include "console.h"
+
+/*****************
+ * screen layout *
+ *****************/
+
+/* title location */
+#define titley 1
+#define titlex 1
+
+/* number location */
+#define numbery 1
+#define numberx 36
+
+/* pc location */
+#define pcy 3
+#define pcx 3
+
+/* dump location */
+#define dumpy 3
+#define dumpx 45
+
+/* menu location */
+#define menuy 12
+#define menux 1
+
+/* memory mapped display location */
+#define dispy 14
+#define dispx 0
+
+/*********************
+ * memory addressing *
+ *********************/
+
+/* relative memory addresses of memory mapped output display;
+   these are relative to DISPBASE the start address for the entire display
+   and apply only within the procedures dispwrite and dispread.
+ */
+#define DISPLINES  0
+#define DISPCOLS   4
+#define DISPSTART  0x100
+
+/* relative memory addresses of memory mapped keyboard interface;
+   these are relative to KBDBASE the start address for the entire keyboard
+   and apply only within the procedures kbdwrite and kbdread.
+*/
+#define KBDDATA  0
+#define KBDSTAT  4
+
+
+/********************
+ * console controls *
+ ********************/
+
+/* basic machine state */
+int running = FALSE;
+int broken = FALSE;
+
+/* cycle count value seen at time of break */
+WORD breakcycles = 0;
+
+/* number being entered */
+WORD number = 0;
+
+/* dump controls */
+WORD dump_addr = 0;
+#define DATAMODE 0
+#define CODEMODE 1
+WORD dump_mode = CODEMODE;
+
+/* menu to display */
+#define NUM_MENUS 7
+int which_menu = 1;
+
+/*************************
+ * Symbolic Dump Support *
+ *************************/
+
+/*******************
+ * console display *
+ *******************/
+
+static void title() {
+	/* put title on screen */
+	move(titley, titlex);
+	printw("HAWK EMULATOR");
+	move(pcy - 1, pcx);
+	printw("/------------------CPU------------------\\");
+	if (COLS < (dumpx + 18)) return; /* no space on screen */
+	move(dumpy - 1, dumpx);
+	printw("  /----MEMORY----\\");
+}
+
+static void status() {
+	/* display CPU status on screen */
+	char n,z,v,c;
+	int i;
+	n = z = v = c = '0';
+	if (psw & N) n = '1'; 
+	if (psw & Z) z = '1'; 
+	if (psw & V) v = '1'; 
+	if (psw & C) c = '1'; 
+	move(pcy, pcx);                             /* 0123456789012345 */
+	printw("PC:  %08"PRIX32, pc);               /* PC:  00000000 */
+	move(pcy + 1, pcx);
+	printw("PSW: %08"PRIX32, psw);              /* PSW: 00000000 */
+	move(pcy + 2, pcx);
+	printw("NZVC: %c %c %c %c", n, z, v, c);    /* NZVC: 0 0 0 0 */
+	if (costat & COENAB) {
+		move(pcy + 4, pcx);
+		printw("COSTAT: %04"PRIX32, costat);/* COSTAT: 0000  */
+	} else {
+		move(pcy + 4, pcx);
+		printw("             ");            /*     erase     */
+	}
+	if (costat & COFPENAB) {
+		move(pcy + 5, pcx);
+		printw("/----FPU----\\");           /* /----FPU----\ */
+		move(pcy + 6, pcx);
+		printw("A0: %9.3g", float_acc(0));  /* A0: 0.000E000 */
+		move(pcy + 7, pcx);
+		printw("A1: %9.3g", float_acc(1));  /* A1: 0.000E000 */
+	} else {
+		move(pcy + 5, pcx);
+		printw("             ");            /*     erase     */
+		move(pcy + 6, pcx);
+		printw("             ");
+		move(pcy + 7, pcx);
+		printw("             ");
+	}
+	for (i = 1; i < 8; i++) {
+		move(pcy + i, pcx + 15);
+		printw("R%1X: %08"PRIX32, i, r[i]);
+	}
+	for (i = 8; i < 16; i++) {
+		move(pcy + (i - 8), pcx + 29);
+		printw("R%1X: %08"PRIX32, i, r[i]);
+	}
+}
+
+static void dump() {
+	/* display memory on screen */
+        unsigned int i;
+	if (COLS < (dumpx + 18)) return; /* no space on screen */
+	if (dump_mode == DATAMODE) { /* do a hex dump */
+		dump_addr &= 0x00FFFFFCUL;
+		for (i = 0; i < 8; i += 1) {
+			WORD addr = dump_addr + (i<<2);
+			move(dumpy + i, dumpx);
+			if (addr == (pc & 0xFFFFFFFCUL)) {
+				if (addr == (breakpoint & 0xFFFFFFFCUL)) {
+					addstr("-*");
+				} else {
+					addstr("->");
+				}
+			} else {
+				if (addr == (breakpoint & (WORD)0xFFFFFFFCUL)) {
+					addstr(" *");
+				} else {
+					addstr("  ");
+				}
+			}
+			if (addr < MAXMEM) {
+				WORD data = m[addr>>2];
+				printw("%06"PRIX32": %08"PRIX32,
+					addr&(WORD)0x00FFFFFFUL, data);
+				if (COLS >= (dumpx + 25)) {
+					int i;
+					addch(' ');
+					for (i = 0; i < 4; i++) {
+						char ch = (data>>(i<<3)) & 0x7F;
+						if (ch < ' ') ch = ' ';
+						addch(ch);
+					}
+				}
+			} else {
+				printw("%06"PRIX32": --------",
+					addr & (WORD)0x00FFFFFFUL);
+			}
+			clrtoeol();
+		}
+        } else { /* dump_mode == CODEMODE */
+		WORD addr;
+		int pcnotseen = TRUE;
+		int trial = 0;
+		do {
+			addr = dump_addr + trial;
+			for (i = 0; i < 8; i += 1) {
+				addr &= (WORD)0x00FFFFFEUL;
+				move(dumpy + i, dumpx);
+				if (addr == pc) {
+					if (addr == breakpoint) {
+						addstr("-*");
+					} else {
+						addstr("->");
+					}
+					pcnotseen = FALSE;
+				} else {
+					if (addr == breakpoint) {
+						addstr(" *");
+					} else {
+						addstr("  ");
+					}
+				}
+				if (addr < MAXMEM) {
+					printw("%06"PRIX32": ",
+						addr&(WORD)0x00FFFFFFUL);
+					addr += showop(addr); 
+				} else {
+					printw("%06"PRIX32": --",
+						addr&(WORD)0x00FFFFFFUL);
+					addr += 2; 
+				}
+				clrtoeol();
+			}
+			trial += 2;
+		} while (((dump_addr+trial) <= pc) && (pc < addr) && pcnotseen);
+	}
+}
+
+static void shownum() {
+	/* display the accumulated number */
+	move(numbery, numberx);
+	if (number == 0) {
+		addstr("        ");
+	} else {
+		printw("%08"PRIX32, number);
+	}
+}
+
+static void menu() {
+	/* display console status */
+	static char * menus[]= {
+		"  RUNNING   control c - halt",
+		"**HALTED**  r(run) s(step) q(quit) ?(help)",
+		"**HALTED**  0-9/A-F(enter n) m(show m[n])"
+			" +-(adjust n) ?(help)",
+		"**HALTED**  t(toggle memory display) ?(help)",
+		"**HALTED**  0-9/A-F(enter n) p(run until pc=n)"
+			" <>(adjust n) ?(help)",
+		"**HALTED**  n(next)"
+			" i(iterate) ?(help)",
+		"**HALTED**  0-9/A-F(enter n)"
+			" z(set refresh interval=n) ?(help)"
+	};
+	move(menuy, menux);
+	if (running) {
+		which_menu = 0;
+	}
+	addstr(menus[which_menu]);
+	clrtoeol();
+	refresh();
+}
+
+/********************************
+ * memory mapped output display *
+ ********************************/
+
+static int dispend; /* the end address of the display memory */
+static int dispcols; /* the number of displayed columns */
+
+void dispwrite(WORD addr, WORD val) {
+	/* addr is relative to display's address range */
+	/* val is value to display */
+	if (addr >= (DISPBASE + DISPSTART)) {
+		if (addr >= dispend) { 
+			return;
+		} else {
+			int relad = addr - (DISPBASE + DISPSTART);
+			int x = dispx + relad % dispcols;
+			int y = dispy + relad / dispcols;
+			char c0 =  val       & 0x7F;
+			char c1 = (val >> 8) & 0x7F;
+			char c2 = (val >>16) & 0x7F;
+			char c3 = (val >>24) & 0x7F;
+			move(y, x);
+			if (c0 >= ' ') {addch(c0);} else {addch(c0|'@');}
+			if (c1 >= ' ') {addch(c1);} else {addch(c1|'@');}
+			if (c2 >= ' ') {addch(c2);} else {addch(c2|'@');}
+			if (c3 >= ' ') {addch(c3);} else {addch(c3|'@');}
+			return;
+		}
+	} else {
+		return;
+	}
+}
+
+WORD dispread(WORD addr) {
+	/* addr is relative to display's address range */
+	if (addr >= (DISPBASE + DISPSTART)) {
+		if (addr >= dispend) { 
+			return 0xFFFFFFFF;
+		} else {
+			int relad = addr - (DISPBASE + DISPSTART);
+			int x = dispx + relad % dispcols;
+			int y = dispy + relad / dispcols;
+			unsigned char c0,c1,c2,c3;
+			move(y, x);
+			c0 = inch();
+			move(y, x+1);
+			c1 = inch();
+			move(y, x+2);
+			c2 = inch();
+			move(y, x+3);
+			c3 = inch();
+			return (c3 << 24) | (c2 << 16) | (c1 << 8) | c0;
+		}
+	} else if (addr == (DISPBASE + DISPLINES)) {
+		return (LINES - dispy) - 1;
+	} else if (addr == (DISPBASE + DISPCOLS)) {
+		return COLS;
+	} else {
+		return 0xFFFFFFFF;
+	}
+}
+
+
+/**************************
+ * memory mapped keyboard *
+ **************************/
+
+static BYTE kbdbuf = 0;    /* most recent character read from keyboard */
+static BYTE kbdstat = 0;   /* keyboard status bits follow */
+
+/* bits in kbdstat, interrupt enable, error and ready */
+#define KBDIE    0x80
+#define KBDERR   0x40
+#define KBDRDY   0x01
+
+/* keyboard interrupt at level 7 in irq register */
+#define KBDIRQ   IRQ7
+
+static void kbdpoll() {
+	/* call whenever there is a need to poll the keyboard for input */
+	int ch;
+	ch = getch();
+	if (ch == ERR) return;
+	kbdbuf = (BYTE)ch;
+	if ((kbdstat & KBDRDY) == 0) {
+		kbdstat |= KBDRDY;
+	} else {
+		/* overrun error */
+		kbdstat |= KBDERR;
+	}
+	if ((kbdstat & KBDIE) != 0) {
+		irq |= KBDIRQ;
+	}
+}
+
+void kbdwrite(WORD addr, WORD val) {
+	/* addr is relative to keyboard's address range */
+	/* val is word to display */
+	if (addr == (KBDBASE + KBDDATA)) {
+		/* no obvious function */
+	} else if (addr == (KBDBASE + KBDSTAT)) {
+		kbdstat &= ~(KBDIE | KBDERR);	/* turn off  IE & ERR bits */
+		val     &=  (KBDIE | KBDERR);   /* keep only IE & ERR bits */
+		kbdstat |= ((BYTE)val);
+		/* only IE and ERR change, all else unchanged */
+	}
+	if ((kbdstat & KBDIE) == 0) { /* if interrupts disabled */
+		irq &= ~KBDIRQ; /* retract interrupt request */
+	}
+}
+
+WORD kbdread(WORD addr) {
+	/* addr is relative to keyboard's address range */
+	if (addr == (KBDBASE + KBDDATA)) {
+		kbdstat &= ~KBDRDY; /* turn off ready bit */
+		irq &= ~KBDIRQ; /* retract interrupt request */
+		return (WORD)kbdbuf;
+	} else if (addr == (KBDBASE + KBDSTAT)) {
+		WORD retval = (WORD)kbdstat;
+		if (!(retval & KBDRDY)) { /* if keyboard not ready */
+			usleep( 50000 );  /* be polite, 0.05 second delay */
+		}			  /* so polling loops relinquish cpu */
+		morecycles += cycles; /* be nice ...  */
+		cycles = 0;	      /* let output echo and keyboard poll */
+		return (WORD)retval;
+	}
+}
+
+
+/********************
+ * console function *
+ ********************/
+
+static void console_stop() {
+	/* shutdown */
+	signal(SIGINT, SIG_IGN);
+	mvcur(0, COLS-1, LINES-1, 0);
+	endwin(); /* curses wrapup */
+	exit(EXIT_SUCCESS);
+}
+
+static void console_sig(int sigraised) {
+	/* control C or other events that stop run */
+	/* sigraised is ignored! */
+	signal(SIGINT, console_sig);
+	breakcycles = cycles;
+	cycles = 0;
+	running = FALSE;
+	broken = TRUE;
+}
+
+void console_startup() {
+	/* startup, called from main */
+	/* assume that breakpoint is already set or zeroed */
+	initscr(); cbreak(); noecho(); clear(); /* curses startup */
+	signal(SIGINT, console_sig);
+	title();
+	menu();
+
+	dispcols = COLS - dispx;
+	dispend = DISPBASE + (DISPSTART + (((LINES - dispy)-1) * (dispcols)));
+}
+
+void console() {
+	/* console, called from main when countdown < 0 or halt */
+	if (dump_mode == CODEMODE) {
+		if (dump_addr > (pc + 16)) {
+			dump_addr = pc - 4;
+		} else if (dump_addr > pc ) {
+			dump_addr = pc;
+		} else if ((dump_addr + 16) <= pc) {
+			dump_addr = pc - 4;
+		}
+	}
+	dump();
+	status();
+	if ((pc == breakpoint)||(pc == 0)) { /* address zero always a break */
+		running = FALSE;
+		which_menu = 1;
+	}
+	if (running) {
+		cycles -= recycle;
+		morecycles += recycle;
+		kbdpoll();
+		refresh();
+		return;
+	}
+	if (broken) {
+		cycles = breakcycles;
+		which_menu = 1;
+		touchwin(stdscr);
+		refresh();
+		broken = FALSE;
+	}
+	menu();
+	for (;;) {
+		int ch;
+		nodelay(stdscr, FALSE);
+		ch = getch();
+
+		/* if the character is a digit, accumulate it */
+		if ((ch >= '0') && (ch <= '9')) {
+			number = (number << 4) | (ch & 0xF);
+			shownum();
+			refresh();
+		} else if ((ch >= 'A') && (ch <= 'F')) {
+			number = (number << 4) | (ch + (10 - 'A'));
+			shownum();
+			refresh();
+		} else if ((ch >= 'a') && (ch <= 'f')) {
+			number = (number << 4) | (ch + (10 - 'a'));
+			shownum();
+			refresh();
+		} else switch (ch) { /* else it's not a digit */
+
+		case 'r': /* run command */
+			running = TRUE;
+			menu();
+			morecycles += (recycle + cycles);
+			cycles = -recycle; /* next refresh when it's positive */
+			nodelay(stdscr, TRUE);
+			return;
+
+		case 's': /* single step command */
+			morecycles += cycles;
+			cycles = 0;
+			nodelay(stdscr, TRUE);
+			return;
+
+		case 'p': /* set breakpoint = number and run command */
+			breakpoint = number & 0xFFFFFFFEUL;
+			running = TRUE;
+			number = 0;
+			shownum();
+			menu();
+			refresh();
+			morecycles += (recycle + cycles);
+			cycles = -recycle;
+			nodelay(stdscr, TRUE);
+			return;
+
+		case 'i': /* set breakpoint = pc and run command */
+			breakpoint = pc;
+			running = TRUE;
+			menu();
+			morecycles += (cycles+recycle);
+			cycles = -recycle;
+			nodelay(stdscr, TRUE);
+			return;
+
+		case 'n': /* set breakpoint = next instr and run command */
+			breakpoint = pc + sizeofop(pc);
+			running = TRUE;
+			menu();
+			morecycles += (cycles+recycle);
+			cycles = -recycle;
+			nodelay(stdscr, TRUE);
+			return;
+
+		case '>': /* move breakpoint */
+			breakpoint += 2;
+			dump();
+			refresh();
+			break;
+
+		case '<': /* move breakpoint */
+			breakpoint -= 2;
+			dump();
+			refresh();
+			break;
+
+		case 'z': /* set execution speed */
+			if ((number > 0)&&(number <= 131072)) {
+				recycle = number;
+				number = 0;
+				shownum();
+				refresh();
+			}
+			break;
+
+		case 'q': /* quit command */
+			console_stop();
+
+		case 'm': /* memory dump command */
+			dump_addr = number;
+			number = 0;
+			shownum();
+			dump();
+			refresh();
+			break;
+
+		case 't': /* toggle memory dump mode command */
+			if (dump_mode == DATAMODE) {
+				dump_mode = CODEMODE;
+			} else {
+				dump_mode = DATAMODE;
+			}
+			dump();
+			refresh();
+			break;
+
+		case '+': /* increment dumped memory command */
+			if (dump_mode == DATAMODE) {
+				dump_addr += 0x0010UL;
+			} else {
+				dump_addr += 0x0008UL;
+			}
+			dump();
+			refresh();
+			break;
+
+		case '-': /* decrement dumped memory command */
+			if (dump_mode == DATAMODE) {
+				dump_addr -= 0x0010UL;
+			} else {
+				dump_addr -= 0x0008UL;
+			}
+			dump();
+			refresh();
+			break;
+
+		case '?': /* help command */
+			which_menu++;
+			if (which_menu >= NUM_MENUS) which_menu = 1;
+			menu();
+			break;
+		}
+	}
+}
+xxxxxxxxxx
+
+cat > cpu.c <<\xxxxxxxxxx
+/* File: cpu.c
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Mar. 6, 1996
+   Revised: Feb. 27, 2002 - replace BCDGET with EX3ADJ instruction
+   Revised: Mar.  1, 2002 - change condcodes after ADDSR and ADDSRU, add SSQADJ
+   Revised: Mar. 13, 2002 - add BTRUNC
+   Revised: July 18, 2002 - replace *ADJ with ADJUST, recode B* branches
+   Revised: July 22, 2002 - MOVESL added.
+   Revised: July 25, 2002 - recode Fxxx opcodes, add LOADL, STOREC
+   Revised: Dec  31, 2007 - switch byte order of IR
+   Revised: Aug  22, 2008 - fix to use stdint.h
+   Revised: Oct  31, 2009 - fix MOVESL, ADDSR
+   Revised: Aug  21, 2011 - add floating point coprocessor
+   Revised: June 19, 2014 - add ADDJUST PLUSx and PLUS, fix startup bugs
+   Revised: July 18, 2014 - add Sparrowhawk subset, fix bugs in virtualization
+   Revised: Nov   7, 2019 - add include console.h, newstyle functions (finally)
+   Revised: Dec  16, 2019 - make LOAD, LOADS, LIL allow dst=PC
+   Revised: Nov   8, 2023 - change stdint.h to inttypes.h
+   Revised: Dec  11, 2023 - make interrupts work
+
+   Language: C (UNIX)
+   Purpose: Hawk instruction set emulator
+*/
+
+/* First, declare that this is a main program */
+#define MAIN
+
+#include <inttypes.h>
+#include "bus.h"
+#include "powerup.h"
+#include "console.h"
+#include "float.h"
+
+
+/************************************************************/
+/* Declarations of machine components not included in bus.h */
+/************************************************************/
+
+static WORD irb; /* instruction register buffer */
+static HALF ir;  /* the instruction register */
+
+/* ir fields OP DST S1 S2 | OP DST OP1 SRC | OP DST OP1 X | OP DST CONST */
+#include "irfields.h"
+
+static WORD ea;     /* the effective address */
+
+static WORD snoop;  /* the snooping address (LOADL,STOREC) */
+
+/* the following are logically part of psw, but are computationally
+   expensive, so not packed into PSW except when needed
+*/
+static WORD carries; /* the carry bits from the adder */
+static WORD imask;   /* which interrupts are enabled (from LEVEL field) */
+
+
+/**********************/
+/* Arithmetic Support */
+/**********************/
+
+/* sign extend byte to word */
+#define SXTB(x) {			\
+	if (x & 0x00000080UL)		\
+		x |= 0xFFFFFF00UL;	\
+	else				\
+		x &= 0x000000FFUL;	\
+}
+
+/* sign extend halfword to word */
+#define SXTH(x) {			\
+	if (x & 0x00008000UL)		\
+		x |= 0xFFFF0000UL;	\
+	else				\
+		x &= 0x0000FFFFUL;	\
+}
+
+/* add (a macro so you can redefine it if overflow is trapped) */
+#define ADDTO(x,y) x += y;
+
+/* add with carry setting condition codes */
+/* here, s is the sum discounting carries into each bit position,
+   the sign bit of tells if the signs of the operands differed, the
+   sign bit of o asks if signs of the operands are the same and the sign
+   of result is different, and the sign of c gives carry out of sign
+*/
+#define ADDTOCC(x,yy,cin) {		\
+	WORD y = yy;			\
+	WORD s = (x ^ y);		\
+	WORD c,v;			\
+	x += (y + (cin));		\
+	carries = s ^ x;		\
+	v = ~s & (x ^ y);		\
+	c = v ^ carries;		\
+	psw &= ~(CC | CBITS);		\
+	if (x & 0x80000000UL) psw |= N;	\
+	if (x == 0x00000000UL) psw |= Z;\
+	if (v & 0x80000000UL) psw |= V;	\
+	if (c & 0x80000000UL) psw |= C;	\
+}
+
+/* pack up the psw */
+/* this puts any fields of the PSW that should be part of the word into
+   position so inspection of the word shows nice things.  The primary
+   problem is to put carries into CBITS.
+*/
+#define PACKPSW {			\
+	WORD srcbit = 0x00000010UL;	\
+	WORD dstbit = 0x00000100UL;	\
+	while (srcbit) {		\
+		if (carries & srcbit) {	\
+			psw |= dstbit;	\
+		}			\
+		srcbit <<= 4;		\
+		dstbit <<= 1;		\
+	}				\
+	if (psw & C) psw |= dstbit;	\
+}
+#define UNPACKPSW {			\
+	WORD dstbit = 0x00000010UL;	\
+	WORD srcbit = 0x00000100UL;	\
+	while (dstbit) {		\
+		if (psw & srcbit) {	\
+			carries |= dstbit;\
+                }			\
+                dstbit <<= 4;		\
+		srcbit <<= 1;		\
+        }				\
+	imask = 0xFF >> (7 - PRIORITY); \
+}
+
+/* set condition codes for operations not involving the adder */
+#define SETCC(x) {			\
+	psw &= ~(CC | CBITS);		\
+	carries = 0;			\
+	if (x & 0x80000000UL) psw |= N;	\
+	if (x == 0x00000000UL) psw |= Z;\
+	/* V and C get reset */		\
+}
+
+/* set C condition code for load operations that detect null bytes */
+#define SETNULLS(x) {			\
+	if (!(x & 0x000000FFUL)) { psw |= C; } \
+	if (!(x & 0x0000FF00UL)) { psw |= C; } \
+	if (!(x & 0x00FF0000UL)) { psw |= C; } \
+	if (!(x & 0xFF000000UL)) { psw |= C; } \
+}
+
+/* condition evaluation */
+#define COND(x) (cctab[psw & CC] & (1 << x))
+#define T   0x0001
+#define NS  0x0002
+#define ZS  0x0004
+#define VS  0x0008
+#define CS  0x0010
+#define LT  0x0020
+#define LE  0x0040
+#define LEU 0x0080
+/*      --- 0x0100 */
+#define NR  0x0200
+#define ZR  0x0400
+#define VR  0x0800
+#define CR  0x1000
+#define GE  0x2000
+#define GT  0x4000
+#define GTU 0x8000
+
+static unsigned int cctab[16] = {
+	/* .... */ ( T | NR | ZR | VR | CR | GE | GT | LEU ),
+	/* ...C */ ( T | NR | ZR | VR | CS | GE | GT | GTU ),
+	/* ..V. */ ( T | NR | ZR | VS | CR | LT | LE | LEU ),
+	/* ..VC */ ( T | NR | ZR | VS | CS | LT | LE | GTU ),
+	/* .Z.. */ ( T | NR | ZS | VR | CR | GE | LE | LEU ),
+	/* .Z.C */ ( T | NR | ZS | VR | CS | GE | LE | LEU ),
+	/* .ZV. */ ( T | NR | ZS | VS | CR | LT | LE | LEU ),
+	/* .ZVC */ ( T | NR | ZS | VS | CS | LT | LE | LEU ),
+	/* N... */ ( T | NS | ZR | VR | CR | LT | LE | LEU ),
+	/* N..C */ ( T | NS | ZR | VR | CS | LT | LE | GTU ),
+	/* N.V. */ ( T | NS | ZR | VS | CR | GE | GT | LEU ),
+	/* N.VC */ ( T | NS | ZR | VS | CS | GE | GT | GTU ),
+	/* NZ.. */ ( T | NS | ZS | VR | CR | LT | LE | LEU ),
+	/* NZ.C */ ( T | NS | ZS | VR | CS | LT | LE | LEU ),
+	/* NZV. */ ( T | NS | ZS | VS | CR | GE | LE | LEU ),
+	/* NZVC */ ( T | NS | ZS | VS | CS | GE | LE | LEU )
+};
+
+/********************/
+/* Input Output Bus */
+/********************/
+
+static WORD input( addr )
+WORD addr;
+{
+	if ((addr >= DISPBASE) && (addr <= DISPLIMIT)) {
+		return dispread( addr );
+	} else if ((addr >= KBDBASE) && (addr <= KBDLIMIT)) {
+		return kbdread( addr );
+	}
+	return 0xAAAAAAAA;
+}
+
+static void output( WORD addr, WORD value ) {
+	if ((addr >= DISPBASE) && (addr <= DISPLIMIT)) {
+		dispwrite( addr, value );
+	} else if ((addr >= KBDBASE) && (addr <= KBDLIMIT)) {
+		kbdwrite( addr, value );
+	}
+}
+
+/*******************************/
+/* Instruction Execution Cycle */
+/*******************************/
+
+WORD lastpc;	/* the value of PC used to fetch the current instruction */
+
+/* force a trap to vector - vector must be x_TRAP for some x */
+#define TRAP( vector ) {				\
+	tpc = lastpc;					\
+	pc = vector;					\
+	psw &= ~OLEVEL;					\
+	psw |= (psw >> 4) & OLEVEL;			\
+	psw &= ~LEVEL;					\
+	UNPACKPSW;					\
+}
+
+/* after assign to PC, check for zero to allow zero as special breakpoint */
+#define BRANCHCHECK {					\
+	if (pc == 0) {					\
+		morecycles = morecycles + cycles;	\
+		cycles = 0;				\
+	}						\
+}
+
+/* fetch one word relative to PC, basis of instruction fetch */
+#define FETCHW {					\
+	if (pc >= MAXMEM) { /* fetch is illegal */	\
+		tma = pc;				\
+		TRAP( BUS_TRAP );			\
+	}						\
+	/* fetch is legal */				\
+	irb = m[(WORD)(pc >> 2)];			\
+	cycles++;					\
+}
+
+/* fetch one halfword relative to PC, using FETCHW every other halfword */
+#define FETCH(r) { /* r = m[pc](halfword); pc += 2 */	\
+	if (pc & 0x2) { /* odd halfword */		\
+		r = irb >> 16;				\
+		pc += 2;				\
+		FETCHW; /* fetch next instr */		\
+	} else { /* even halfword */			\
+		r = irb & 0xFFFF;			\
+		pc += 2;				\
+	}						\
+}
+
+#define LOAD(dst) { /* setup to load from memory */	\
+	if (ea >= MAXMEM) { /* load outside memory */	\
+		if (ea < IOSPACE) {			\
+			tma = ea;			\
+			TRAP( BUS_TRAP );		\
+			FETCHW;				\
+			continue;			\
+		}					\
+		dst = input( ea );			\
+	} else { /* load is normal */			\
+		dst = m[ea >> 2];			\
+	}						\
+	cycles++;					\
+}
+
+#define STORE(src) { /* setup to store to memory */	\
+	if (ea == snoop) snoop |= 1;   \
+	if (ea >= MAXMEM) { /* store outside memory */	\
+		if (ea < IOSPACE) {			\
+			tma = ea;			\
+			TRAP( BUS_TRAP );		\
+			FETCHW;				\
+			continue;			\
+		}					\
+		output( ea, src );			\
+	} else if (ea < MAXROM) { /* store is illegal */\
+		tma = ea;				\
+		TRAP( BUS_TRAP );			\
+		FETCHW;					\
+		continue;				\
+	} else { /* store is normal */			\
+		m[ea >> 2] = src;			\
+	}						\
+	cycles++;					\
+}
+
+int main(int argc, char ** argv) {
+	breakpoint = 0; /* powerup may override this default */
+	powerup(argc,argv);
+	console_startup();
+
+	cycles = 0;
+	irq = 0;     /* no pending interrupts at startup */
+	psw = 0;     /* all PSW fields zero at startup */
+	imask = 0;   /* this is a consequence of PSW level field */
+	carries = 0; /* this is a consequence of PSW carries field */
+	FETCHW; /* fetch the first 2 instructions */
+	for (;;) {
+		if ( (!(cycles & 0x80000000UL))   /* positive -> display updt */
+		||   (pc == breakpoint)         ) /* we reach breakpoint */
+		/* then */ {
+			PACKPSW;
+			console();
+		}
+
+		lastpc = pc;
+
+		{
+			WORD intr = irq & imask;
+			if (intr) { /* pending interrupt */
+				WORD vector = INTERRUPT_TRAP;
+				while ((intr & 1) == 0) { /* which interrupt */
+					intr = intr >> 1;
+					vector = vector + TRAP_VECTOR_STEP;
+				}
+				TRAP( vector );
+				FETCHW;
+				continue;
+			}
+		}
+
+		FETCH(ir);
+
+		r[0] = 0UL; /* force R0 to 0 before each instr */
+
+		/***********************************
+		 * in all of the following cases,  *
+		 * normal exit is by continue,     *
+		 * meaning fetch the next instr,   *
+		 * while abnormal exit is by break *
+		 * leading to an instructio trap   *
+		 ***********************************/
+		switch (OP) { /* decode the instruction */
+
+		case 0xF: /* memory reference formats */
+
+			switch (OP1) { /* decode secondary opcode field */
+
+			case 0xF: /* MOVE */
+				if (DST == 0) break;
+				ea = 0;
+				r[0] = pc;
+				ADDTO(ea,r[X]);
+				r[DST] = ea;
+				continue;
+
+			case 0xE: /* MOVECC */
+				ea = 0;
+				r[0] = pc;
+				ADDTOCC(ea,r[X],0);
+				r[DST] = ea;
+				continue;
+
+			case 0xD: /* LOADS */
+				r[0] = pc;
+				ea = r[X] & 0xFFFFFFFCUL;
+				LOAD(r[DST]);
+				if (DST != 0) continue;
+				pc = r[0];
+				BRANCHCHECK;
+				FETCHW;
+				continue;
+
+			case 0xC: /* LOADSCC */
+				r[0] = pc;
+				ea = r[X] & 0xFFFFFFFCUL;
+				LOAD(r[DST]);
+				SETCC(r[DST]);
+				SETNULLS(r[DST]);
+				continue;
+
+			case 0xB: /* JSRS */
+				r[0] = pc;
+				ea = r[X];
+				r[DST] = pc;
+				pc = ea;
+				BRANCHCHECK;
+				FETCHW;
+				continue;
+
+			case 0xA: /* STORES */
+				if (X == 0) break;
+				r[0] = pc;
+				ea = r[X] & 0xFFFFFFFCUL;
+				r[0] = 0;
+				STORE(r[DST]);
+				continue;
+
+			case 0x9: /* -- LOADL, LOADSCC with added snooping */
+				if (X == 0) break;
+				r[0] = pc;
+				ea = r[X] & 0xFFFFFFFCUL;
+				snoop = ea;
+				LOAD(r[DST]);
+				SETCC(r[DST]);
+				SETNULLS(r[DST]);
+				continue;
+
+			case 0x8: /* -- STOREC, STORES with snoop-driven fail */
+				if (X == 0) break;
+				r[0] = pc;
+				ea = r[X] & 0xFFFFFFFCUL;
+				r[0] = 0;
+				psw &= ~(CC | CBITS);
+				if (ea == snoop) {
+					STORE(r[DST]);
+				} else {
+					psw |= V;
+				}
+				continue;
+
+			case 0x7: /* LEA */
+				#ifdef SPARROWHAWK
+					break;
+				#else
+					if (DST == 0) break;
+					FETCH(ea);
+					SXTH(ea);
+					r[0] = pc;
+					ADDTO(ea,r[X]);
+					r[DST] = ea;
+					continue;
+				#endif
+
+			case 0x6: /* LEACC */
+				#ifdef SPARROWHAWK
+					break;
+				#else
+					FETCH(ea);
+					SXTH(ea);
+					r[0] = pc;
+					ADDTOCC(ea,r[X],0);
+					r[DST] = ea;
+					continue;
+				#endif
+
+			case 0x5: /* LOAD */
+				#ifdef SPARROWHAWK
+					break;
+				#else
+					FETCH(ea);
+					SXTH(ea);
+					r[0] = pc;
+					ADDTO(ea,r[X]);
+					ea &= 0xFFFFFFFCUL;
+					LOAD(r[DST]);
+					if (DST != 0) continue;
+					pc = r[0];
+					BRANCHCHECK;
+					FETCHW;
+					continue;
+				#endif
+
+			case 0x4: /* LOADCC */
+				#ifdef SPARROWHAWK
+					break;
+				#else
+					FETCH(ea);
+					SXTH(ea);
+					r[0] = pc;
+					ADDTO(ea,r[X]);
+					ea &= 0xFFFFFFFCUL;
+					LOAD(r[DST]);
+					SETCC(r[DST]);
+					SETNULLS(r[DST]);
+					continue;
+				#endif
+
+			case 0x3: /* JSR */
+				#ifdef SPARROWHAWK
+					break;
+				#else
+					FETCH(ea);
+					SXTH(ea);
+					r[0] = pc;
+					ADDTO(ea,r[X]);
+					r[DST] = pc;
+					pc = ea;
+					BRANCHCHECK;
+					FETCHW;
+					continue;
+				#endif
+
+			case 0x2: /* STORE */
+				#ifdef SPARROWHAWK
+					break;
+				#else
+					FETCH(ea);
+					SXTH(ea);
+					r[0] = pc;
+					ADDTO(ea,r[X]);
+					ea &= 0xFFFFFFFCUL;
+					r[0] = 0;
+					STORE(r[DST]);
+					continue;
+				#endif
+
+			case 0x1: /* -- */
+			case 0x0: /* -- */
+				break;
+
+			}
+			/* only traps get here */
+			break;
+
+		case 0xE: /* LIL */
+			#ifdef SPARROWHAWK
+				break;
+			#else
+				r[DST] = CONST;
+				FETCH(ea);
+				SXTH(ea);
+				r[DST] |= (ea << 8);
+				if (DST != 0) continue;
+				pc = r[0];
+				BRANCHCHECK;
+				FETCHW;
+				continue;
+			#endif
+
+		case 0xD: /* LIS */
+			if (DST == 0) break;
+			r[DST] = CONST;
+			SXTB(r[DST]);
+			continue;
+
+		case 0xC: /* ORIS */
+			if (DST == 0) break;
+			r[DST] <<= 8;
+			r[DST] |= CONST;
+			continue;
+
+		case 0xB: /* MOVESL */
+			if (S1 == 0) break;
+			{
+				int shift = (S2 - 1) & 0xF;
+				WORD d = r[S1];
+				WORD c = d & ~(0x7FFFFFFFUL >> shift);
+				WORD vm = 0x7FFFFFFFUL >> (shift + 1);
+				WORD v = d & ~vm;
+				r[DST] = d << (shift + 1);
+				SETCC(r[DST]);
+				if (c) psw |= C;
+				if (v) v = (v + vm + 1) & vm;
+				if (v) psw |= V;
+			}
+			continue;
+
+		case 0xA: /* ADDSL */
+			if (DST == 0) break;
+			{
+				int shift = (S2 - 1) & 0xF;
+				WORD d = r[DST];
+				WORD c = d & ~(0x7FFFFFFFUL >> shift);
+				WORD vm = 0x7FFFFFFFUL >> (shift + 1);
+				WORD v = d & ~vm;
+				d <<= (shift + 1);
+				ADDTOCC(d,r[S1],0);
+				r[DST] = d;
+				if (c) psw |= C;
+				if (v) v = (v + vm + 1) & vm;
+				if (v) psw |= V;
+			}
+			continue;
+
+		case 0x9: /* ADDSR */
+			{
+				int shift = ((S2 - 1) & 0xF) + 1;
+				WORD d = r[DST];
+				WORD v;
+				WORD c;
+				WORD m = 0x7FFFFFFFUL >> (shift - 1);
+				ADDTOCC(d,r[S1],0);
+				v = d & ~(0xFFFFFFFFUL << shift);
+				c = d &  (0x00000001UL << (shift - 1));
+				d >>= shift;
+				if (psw & N) {
+					if (psw & V) {  /* neg and ovf */
+						d &= m; /*   make positive */
+					} else {        /* neg and no ovf */
+						d |= ~m;/*   make negative */
+					}
+				} else {
+					if (psw & V) {  /* pos and ovf */
+						d |= ~m;/*   make negative */
+					} else {        /* pos and no ovf */
+						d &= m; /*   make positive */
+					}
+				}
+				SETCC(d);
+				r[DST] = d;
+				if (v) psw |= V;
+				if (c) psw |= C;
+			}
+			continue;
+
+		case 0x8: /* ADDSRU */
+			{
+				int shift = ((S2 - 1) & 0xF) + 1;
+				WORD d = r[DST];
+				WORD v;
+				WORD c;
+				WORD m = 0x7FFFFFFFUL >> (shift - 1);
+				ADDTOCC(d,r[S1],0);
+				v = d & ~(0xFFFFFFFFUL << shift);
+				c = d &  (0x00000001UL << (shift - 1));
+				d >>= shift;
+				d &= m;
+				if (psw & C) {
+					d += (m + 1);
+				}
+				SETCC(d);
+				r[DST] = d;
+				if (v) psw |= V;
+				if (c) psw |= C;
+			}
+			continue;
+
+		case 0x7: /* STUFFB */
+			if (DST == 0) break;
+			{
+				int d = DST;
+				int shift = ((int)(r[S2] & 3)) << 3;
+				WORD mask = ~(0x000000FFUL << shift);
+				r[d] = (r[d] & mask)
+				     | ((r[S1] & 0x000000FFUL) << shift);
+			}
+			continue;
+
+		case 0x6: /* STUFFH */
+			if (DST == 0) break;
+			{
+				int d = DST;
+				int shift = ((int)(r[S2] & 2)) << 3;
+				WORD mask = ~(0x0000FFFFUL << shift);
+				r[d] = (r[d] & mask)
+				     | ((r[S1] & 0x0000FFFFUL) << shift);
+			}
+			continue;
+
+		case 0x5: /* EXTB */
+			if (S1 == 0) break;
+			{
+				int shift = ((int)(r[S2] & 3)) << 3;
+				WORD src = r[S1];
+				r[DST] = (src >> shift) & 0x000000FFUL;
+				SETCC(r[DST]);
+			}
+			continue;
+
+		case 0x4: /* EXTH */
+			if (S1 == 0) break;
+			{
+				int shift = ((int)(r[S2] & 2)) << 3;
+				WORD src = r[S1];
+				r[DST] = (src >> shift) & 0x0000FFFFUL;
+				SETCC(r[DST]);
+			}
+			continue;
+
+		case 0x3: /* ADD */
+			if (S1 == 0) break;
+			if (S2 == 0) break;
+			{
+				WORD dst = r[S1];
+				ADDTOCC(dst,r[S2],0);
+				r[DST] = dst;
+			}
+			continue;
+
+		case 0x2: /* SUB */
+			if (S2 == 0) break;
+			{
+				WORD dst = r[S1];
+				ADDTOCC(dst,~r[S2],1);
+				r[DST] = dst;
+			}
+			continue;
+
+		case 0x1: /* Two register format */
+				
+			switch (OP1) { /* decode secondary opcode field */
+
+			case 0xF: /* TRUNC */
+				if (DST == 0) break;
+				{
+					int s = (SRC - 1) & 0xF;
+					WORD m = 0xFFFFFFFFUL << s;
+					WORD d = r[DST];
+					WORD g = d & m;
+					WORD c = d & (m<<1);
+					d &= ~(m<<1);
+					SETCC(d);
+					r[DST] = d;
+					if (c) psw |= C;
+					if (g) g = (~g) & m;
+					if (g) psw |= V;
+				}
+				continue;
+
+			case 0xE: /* SXT */
+				if (DST == 0) break;
+				{
+					int s = (SRC - 1) & 0xF;
+					WORD m = 0xFFFFFFFFUL << s;
+					WORD d = r[DST];
+					WORD g = d & m;
+					WORD c = d & (m<<1);
+					if (d&((~m)+1)) { /* negative */
+						d |= m;
+					} else { /* positive */
+						d &= ~m;
+					}
+					SETCC(d);
+					r[DST] = d;
+					if (c) psw |= C;
+					if (g) g = (~g) & m;
+					if (g) psw |= V;
+				}
+				continue;
+
+			case 0xD: /* BTRUNC */
+				if (DST == 0) break;
+				{
+					int s = ((SRC - 1) & 0xF) + 1;
+					WORD ms = 0xFFFFFFFFUL << s;
+					WORD d = r[DST] & ~ms;
+					ADDTO(pc, d << 1);
+					BRANCHCHECK;
+					FETCHW;
+				}
+				continue;
+
+			case 0xC: /* ADDSI */
+				if (DST == 0) break;
+				{
+					WORD src = SRC;
+					if (src & 0x8) src |= 0xFFFFFFF0UL;
+					if (src == 0) src = 8;
+					ADDTOCC(r[DST], src, 0);
+				}
+				continue;
+
+			case 0xB: /* AND */
+				if (DST == 0) break;
+				if (SRC == 0) break;
+				r[DST] &= r[SRC];
+				SETCC(r[DST]);
+				continue;
+
+			case 0xA: /* OR  */
+				if (DST == 0) break;
+				if (SRC == 0) break;
+				r[DST] |= r[SRC];
+				SETCC(r[DST]);
+				continue;
+
+			case 0x9: /* EQU */
+				if (DST == 0) break;
+				r[DST] = ~(r[DST] ^ r[SRC]);
+				SETCC(r[DST]);
+				continue;
+
+			case 0x8: /* --  */
+				break;
+
+			case 0x7: /* ADDC */
+				{
+					int nz = (~psw) & Z;
+					ADDTOCC(r[DST], r[SRC], psw & C);
+					if (nz) psw &= ~Z;
+				}
+				continue;
+
+			case 0x6: /* SUBB */
+				{
+					int nz = (~psw) & Z;
+					ADDTOCC(r[DST], ~r[SRC], psw & C);
+					if (nz) psw &= ~Z;
+				}
+				continue;
+
+			case 0x5: /* ADJUST */
+				if (DST == 0) break;
+				{
+					WORD src = 0; /* effective source */
+					switch (SRC) { /* decode source */
+
+					case 0x0: /*  */
+					case 0x1: /*  */
+						break;
+
+					case 0x2: /* BCD */
+						src = (carries>>1)
+							& 0x08888888UL;
+						if (psw & C)
+							src |= 0x80000000UL;
+						src = (src >> 1)|(src >> 2);
+						src = (~src) + 1;
+						/* subtract 6 from digits
+						   that didn't produce carry */
+						break;
+
+					case 0x3: /* EX3 */
+						src = (carries>>1)
+							& 0x08888888UL;
+						if (psw & C)
+							src |= 0x80000000UL;
+						src |=   src >> 2      ;
+						src |= ((src << 1) | 1);
+						src ^= 0xCCCCCCCCUL;
+						/* either add or subtract 3
+						   to make correct excess-3 */
+						break;
+
+					case 0x4: /* CMSB */
+						if (psw & C)
+							src = 0x80000000UL;
+						break;
+
+					case 0x5: /* SSQ */
+						if ((psw & N) && (psw & V))
+							src = 0x00000001UL;
+						break;
+
+					case 0x6: /*  */
+					case 0x7: /*  */
+						break;
+
+					case 0x8: /* PLUS1 */
+						src = 1;
+						break;
+
+					case 0x9: /* PLUS2 */
+						src = 2;
+						break;
+
+					case 0xA: /* PLUS4 */
+						src = 4;
+						break;
+
+					case 0xB: /* PLUS8 */
+						src = 8;
+						break;
+
+					case 0xC: /* PLUS16 */
+						src = 16;
+						break;
+
+					case 0xD: /* PLUS32 */
+						src = 32;
+						break;
+
+					case 0xE: /* PLUS64 */
+						src = 64;
+						break;
+
+					case 0xF: /* PLUS128 */
+						src = 128;
+						break;
+					}
+					if (DST != 0) {
+						ADDTO(r[DST],src);
+					}
+				}
+				continue;
+
+			case 0x4: /* PLUS */
+				if (DST == 0) break;
+				r[0] = pc;
+				WORD dst = r[S1];
+				ADDTO(r[DST],r[S2]);
+				continue;
+
+			case 0x3: /* COGET */
+			    #ifdef SPARROWHAWK
+				break;
+			    #else
+				psw &= ~(CC | CBITS); /* always reset cc */
+				if (SRC == 0) {
+					if (costat == 0) psw |= Z;
+					r[DST] = costat;
+					continue;
+				} else switch (COSEL) {
+				case 0x0:
+					break; /* missing coprocessor */
+				case 0x1:
+					if (!(costat & COFPENAB)) {
+						TRAP( CO_TRAP );
+						FETCHW;
+						continue;
+					}
+					r[DST] = float_coget( SRC );
+					psw |= cocc; /* cond codes from cop */
+					continue;
+				case 0x2:
+				case 0x3:
+				case 0x4:
+				case 0x5:
+				case 0x6:
+				case 0x7:
+					break; /* missing coprocessor */
+				}
+				TRAP( CO_TRAP );
+				FETCHW;
+				continue;
+			    #endif
+
+			case 0x2: /* COSET */
+			    #ifdef SPARROWHAWK
+				break;
+			    #else
+				if (SRC == 0) {
+					costat = r[DST] & COMASK;
+					continue;
+				} else switch (COSEL) {
+				case 0x0:
+					break; /* missing coprocessor */
+				case 0x1:
+					if (!(costat & COFPENAB)) {
+						TRAP( CO_TRAP );
+						FETCHW;
+						continue;
+					}
+					float_coset( SRC, r[DST] );
+					continue;
+				case 0x2:
+				case 0x3:
+				case 0x4:
+				case 0x5:
+				case 0x6:
+				case 0x7:
+					break; /* missing coprocessor */
+				}
+				TRAP( CO_TRAP );
+				FETCHW;
+				continue;
+			    #endif
+
+			case 0x1: /* CPUGET */
+				if ((psw & LEVEL) == LEVEL) { /* all ones */
+					TRAP( PRIV_TRAP );
+					FETCHW;
+					continue;
+				}
+				{
+					WORD dst;
+					switch (SRC) { /* decode source */
+
+					case 0x0: /* PSW */
+						PACKPSW;
+						dst = psw;
+						break;
+
+					case 0x1: /* TPC */
+						dst = tpc;
+						break;
+
+					case 0x2: /* TMA */
+						dst = tma;
+						break;
+
+					case 0x3: /* TSV */
+						dst = tsv;
+						break;
+
+					case 0x4: /* -- */
+					case 0x5: /* -- */
+					case 0x6: /* -- */
+					case 0x7: /* -- */
+						break;
+
+					case 0x8: /* CYC */
+						dst = cycles + morecycles;
+						break;
+
+					case 0x9: /* -- */
+					case 0xA: /* -- */
+					case 0xB: /* -- */
+					case 0xC: /* -- */
+					case 0xD: /* -- */
+					case 0xE: /* -- */
+					case 0xF: /* -- */
+						break;
+					}
+					if (DST != 0) {
+						r[DST] = dst;
+					} else {
+						pc = dst;
+						psw &= ~LEVEL;
+						psw |= ((psw & OLEVEL) << 4);
+						psw &= ~OLEVEL;
+						BRANCHCHECK;
+						FETCHW;
+					}
+				}
+				continue;
+				/* control never reaches here */
+
+			case 0x0: /* CPUSET */
+				if ((psw & LEVEL) == LEVEL) { /* all ones */
+					TRAP( PRIV_TRAP );
+					FETCHW;
+					continue;
+				}
+				switch (SRC) { /* decode terenary opcode */
+
+				case 0x0: /* PSWSET */
+					psw = r[DST];
+					UNPACKPSW;
+					continue;
+
+				case 0x1: /* TPCSET */
+					tpc = r[DST];
+					continue;
+
+				case 0x2: /* TMASET */
+					tma = r[DST];
+					continue;
+
+				case 0x3: /* TSVSET */
+					tsv = r[DST];
+					continue;
+
+				case 0x4: /* -- */
+				case 0x5: /* -- */
+				case 0x6: /* -- */
+				case 0x7: /* -- */
+					continue;
+
+				case 0x8: /* CYCSET */
+					morecycles = r[DST];
+					cycles = 0;
+					continue;
+
+				case 0x9: /* -- */
+				case 0xA: /* -- */
+				case 0xB: /* -- */
+				case 0xC: /* -- */
+				case 0xD: /* -- */
+				case 0xE: /* -- */
+				case 0xF: /* -- */
+					continue;
+
+				}
+				/* control never reaches here */
+			}
+			/* only traps get here */
+			break;
+
+		case 0x0: /* Bcc */
+			/* CONST == 0xFF could be illegal, infinite loop */
+			/* CONST == 0xFF could be sleep command */
+			if (DST == 0x8) break;
+			if (COND(DST)) {
+				ea = CONST;
+				SXTB(ea);
+				ADDTO(pc, ea << 1);
+				BRANCHCHECK;
+				FETCHW;
+			}
+			continue;
+		}
+		/* only traps get here */
+		tma = 0;
+		TRAP( INSTRUCTION_TRAP );
+		FETCHW;
+	}
+}
+xxxxxxxxxx
+
+cat > float.c <<\xxxxxxxxxx
+/* File: float.c
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Aug. 21, 2011
+   Revised: Nov.  8, 2023 -- add float_acc() for console display of state
+
+   Language: C (UNIX)
+   Purpose: Hawk floating point coprocessor
+*/
+
+/* First, declare that this is a main program */
+
+#include <inttypes.h>
+#include <math.h>
+#include "bus.h"
+#include "float.h"
+
+
+/************************************************************/
+/* Declarations of coprocessor state not included in bus.h  */
+/************************************************************/
+
+double fpa[2];	/* two floating accumulators, always in long format */
+WORD fplow;
+
+/* bit in COSTAT */
+#define FPLONG 0x01000
+
+/*************/
+/* Interface */
+/*************/
+
+double float_acc( int i ) {
+	/* read-only access to floating point accumulators for front panel */
+	return fpa[i];
+}
+
+void float_coset( int reg, WORD val ) {
+	/* coprocesor operation initiated by CPU */
+	int a = reg & 1;
+	int r = reg >> 1;
+	if (!(costat & COFPENAB)) {
+		return; /* floating point unit disabled */
+	} else if (costat & FPLONG) { /* long mode */
+		int64_t bigval = (((int64_t)val) << 32) | fplow;
+		switch (r) {
+		case 0: /* FPLOW -- context guarantes not COSTAT */
+			fplow = val;
+			break;
+		case 1: /* FPA[r] */
+			fpa[a] = *((double *)(&bigval));
+			break;
+		case 2: /* FPINT to fpa[a] */
+			fpa[a] = bigval; /* bigval is already signed */
+			break;
+		case 3: /* FPSQRT to fpa[a] */
+			fpa[a] = sqrt( *((double *)(&bigval)) );
+			break;
+		case 4: /* FPADD to fpa[a] */
+			fpa[a] = fpa[a] + *((double *)(&bigval));
+			break;
+		case 5: /* FPSUB from fpa[a] */
+			fpa[a] = fpa[a] - *((double *)(&bigval));
+			break;
+		case 6: /* FPMUL to fpa[a] */
+			fpa[a] = fpa[a] * *((double *)(&bigval));
+			break;
+		case 7: /* FPDIV into fpa[a] */
+			fpa[a] = fpa[a] / *((double *)(&bigval));
+			break;
+		}
+	} else {
+		switch (r) { /* short mode */
+		/* all operands get lengthened, fplow is there but ignored */
+		case 0: /* FPLOW -- context guarantes not COSTAT */
+			fplow = val;
+			break;
+		case 1: /* FPA[a] */
+			fpa[a] = *((float *)(&val)); /* lengthen operand */
+			break;
+		case 2: /* FPINT to fpa[a] */
+			fpa[a] = (SWORD) val; /* converted value is signed */
+			break;
+		case 3: /* FPSQRT to fpa[a] */
+			fpa[a] = sqrt( *((float *)(&val)) );
+			break;
+		case 4: /* FPADD to fpa[a] */
+			fpa[a] = fpa[a] + *((float *)(&val));
+			break;
+		case 5: /* FPSUB from fpa[a] */
+			fpa[a] = fpa[a] - *((float *)(&val));
+			break;
+		case 6: /* FPMUL to fpa[a] */
+			fpa[a] = fpa[a] * *((float *)(&val));
+			break;
+		case 7: /* FPDIV into fpa[a] */
+			fpa[a] = fpa[a] / *((float *)(&val));
+			break;
+		}
+	}
+}
+
+WORD float_coget( int reg ) {
+	/* coprocesor operation initiated by CPU */
+	int a = reg & 1;
+	int r = reg >> 1;
+	cocc = 0; /* by default, we set no condition codes */
+	if (!(costat & COFPENAB)) {
+		return 0; /* floating point unit disabled */
+	} else if (costat & FPLONG) { /* long version */
+		int64_t bigval = *((int64_t *)(&fpa[a]));
+		switch (r) {
+		case 0: /* FPLOW -- context guarantes not COSTAT */
+			return fplow;
+		case 1: /* FPA[a] */
+			fplow = (WORD)bigval; /* truncated to 32 bits */
+			if (bigval < 0.0) cocc |= N;
+			if (bigval == 0.0) cocc |= Z;
+			if (!isfinite(fpa[a])) cocc |= C;
+			return (WORD)(bigval >> 32);
+		case 2: /* none */
+		case 3: /* none */
+		case 4: /* none */
+		case 5: /* none */
+		case 6: /* none */
+		case 7: /* none */
+			return 0;
+		};
+	} else { /* short version */
+		float fval = fpa[a]; /* shorten operand */
+		switch (r) {
+		case 0: /* FPLOW -- context guarantes not COSTAT */
+			return fplow;
+		case 1: /* FPA[a] */
+			if (fval < 0.0) cocc |= N;
+			if (fval == 0.0) cocc |= Z;
+			if (!isfinite(fval)) cocc |= C;
+			return *((WORD *)(&fval));
+		case 2: /* none */
+		case 3: /* none */
+		case 4: /* none */
+		case 5: /* none */
+		case 6: /* none */
+		case 7: /* none */
+			return 0;
+		};
+	}
+}
+xxxxxxxxxx
+
+cat > powerup.c <<\xxxxxxxxxx
+/* File: powerup.c
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Mar. 6, 1996
+   Revised: Nov. 9, 2023 - (WORD)casting, -Z command line arg, error msgs
+   Language: C (UNIX)
+   Purpose: Hawk Emulator Power-On support;
+		parses command line arguments and loads object file.
+*/
+
+#include <inttypes.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "bus.h"
+#include "powerup.h"
+
+static FILE *f = NULL;
+
+/**************************************
+ * error diagnostic output for loader *
+ **************************************/
+
+static void diagnose(int c) {
+	/* put c to stderr for diagnostic */
+	if (c < 0) {
+		fputs("EOF", stderr);
+	} else if (c < ' ') {
+		putc('^', stderr);
+		putc(c + '@', stderr);
+	} else if (c > 0x7F) {
+		putc('+', stderr);
+		putc(c - 0x7F, stderr);
+	} else {
+		putc(c, stderr);
+	}
+}
+
+static void wipeout() {
+	fputs(" in object file **\n", stderr);
+	exit(EXIT_FAILURE); /* error */
+}
+
+/**********
+ * loader *
+ **********/
+
+/* documentation for the syntax of the SMAL loader sublanguage is found in
+ * section 9.1 of the SMAL manual:
+ * https://homepage.cs.uiowa.edu/~dwjones/cross/smal32/loader.html#load
+ */
+
+static WORD lc = 0UL; /* the location counter */
+static WORD rb = 0UL; /* the relocation base */
+
+static void getcheck(char c) {
+	/* get char from SMAL32 object file and verify that it's c */
+	int ch = getc(f);
+	if (ch != c) {
+		fputs("** found '", stderr);
+		diagnose(c);
+		fputs("' where '", stderr);
+		diagnose(ch);
+		fputs("' expected", stderr);
+		wipeout();
+	}
+	
+}
+
+static WORD load_value() {
+	/* parse a load value from SMAL32 object file, up through EOL */
+	int ch = getc(f);
+	if (ch == '#') {
+		WORD value = 0UL;
+		ch = getc(f);
+		do {
+			if ((ch >= '0')&&(ch <= '9')) {
+				value = (value << 4) | (ch - '0');
+			} else if ((ch >= 'A')&&(ch <= 'F')) {
+				value = (value << 4) | (ch - ('A' - 10));
+			} else {
+				fputs("** found '", stderr);
+				diagnose(ch);
+				fputs("' where hex digit expected", stderr);
+				wipeout();
+			}
+			ch = getc(f);
+		} while ((ch != '\n') && (ch != '+'));
+		if (ch == '+') {
+			getcheck('R');
+			getcheck('\n');
+			value += rb;
+		} else if (ch != '\n') {
+			fputs("** found '", stderr);
+			diagnose(ch);
+			fputs("' where EOL expected", stderr);
+			wipeout();
+		}
+		return value;
+	} else if (ch == ' ') {
+		getcheck('R');
+		getcheck('\n');
+		return rb;
+	} else {
+		fputs("** found '", stderr);
+		diagnose(ch);
+		fputs("' where load value expected", stderr);
+		wipeout();
+	}
+}
+
+static void storebyte(WORD loc, WORD val) {
+	/* store BYTE val in m[loc] */
+	WORD a = loc >> 2;
+	int s = (loc & (WORD)0x00000003UL) << 3; /* shift count within word */
+	WORD w;
+	if (loc >= MAXMEM) {
+		fputs("** invalid load address", stderr);
+		wipeout();
+	}
+	w = m[a];
+	w = (w & ~((WORD)0x000000FFUL << s))|((val & (WORD)0x000000FFUL) << s);
+	m[a] = w;
+}
+
+static void load() {
+	/* load a SMAL32 object file */
+	int ch;
+	ch = getc(f);
+	while (ch != EOF) {
+		if (ch == 'W') {
+			WORD w = load_value();
+			storebyte(lc,     w      );
+			storebyte(lc + 1, w >>  8);
+			storebyte(lc + 2, w >> 16);
+			storebyte(lc + 3, w >> 24);
+			lc += 4;
+		} else if (ch == 'T') {
+			WORD t = load_value();
+			storebyte(lc,     t      );
+			storebyte(lc + 1, t >>  8);
+			storebyte(lc + 2, t >> 16);
+			lc += 3;
+		} else if (ch == 'H') {
+			WORD h = load_value();
+			storebyte(lc,     h      );
+			storebyte(lc + 1, h >>  8);
+			lc += 2;
+		} else if (ch == 'B') {
+			WORD b = load_value();
+			storebyte(lc,     b      );
+			lc += 1;
+		} else if (ch == '.') {
+			getcheck('=');
+			lc = load_value();
+		} else if (ch == 'R') {
+			getcheck('=');
+			getcheck('.');
+			getcheck('\n');
+			rb = lc;
+		} else if (ch == 'S') {
+			breakpoint = load_value();
+			if (pc & (WORD)0x00000001UL) {
+				fputs("** odd start address", stderr);
+				wipeout();
+			}
+		} else {
+			fputs("** found '", stderr);
+			diagnose(ch);
+			fputs("' where load directive expected", stderr);
+			wipeout();
+		}
+		ch = getc(f);
+	}
+}
+
+void powerup(int argc, char **argv) {
+	int i;
+	recycle = 20; /* by default update console display every 20 mem refs */
+
+	for (i = 1; i < argc; i++) { /* for each argument */
+		if (argv[i][0] == '-') {
+			if ((argv[i][1] == 'Z')&&(argv[i][2] == '\0')) {
+				i++;
+				if (i < argc) {
+					char * e;
+					recycle == (WORD)strtol(argv[i],&e,10);
+					if ((e == argv[i]) || (*e != '\0')){
+						fputs(argv[0], stderr);
+						fputs(" -Z ", stderr);
+						fputs(argv[i], stderr);
+						fputs(": bad number\n", stderr);
+						exit(EXIT_FAILURE); /* error */
+					}
+				} else {
+					fputs(argv[0], stderr);
+					fputs(" -Z", stderr);
+					fputs(": missing sleep time\n", stderr);
+					exit(EXIT_FAILURE); /* error */
+				}
+			} else if ((argv[i][1] == '?')&&(argv[i][2] == '\0')) {
+				fputs(argv[0], stderr);
+				fputs(" [-Z cycles] load file list\n", stderr);
+				exit(EXIT_SUCCESS); /* error */
+			} else {
+				fputs(argv[0], stderr);
+				fputs(" ", stderr);
+				fputs(argv[i], stderr);
+				fputs(": bad command line option\n", stderr);
+				exit(EXIT_FAILURE); /* error */
+			}
+                } else {
+			f = fopen(argv[i], "r");
+			if (f == NULL) {
+				fputs(argv[0], stderr);
+				fputs(" ", stderr);
+				fputs(argv[i], stderr);
+				fputs(": cannot open object file\n", stderr);
+				exit(EXIT_FAILURE); /* error */
+			}
+			load();
+			fclose(f);
+			f = NULL;
+		}
+	}
+}
+xxxxxxxxxx
+
+cat > showop.c <<\xxxxxxxxxx
+/* File: showop.c
+   Author: Douglas Jones, Dept. of Comp. Sci., U. of Iowa, Iowa City, IA 52242.
+   Date: Apr. 23, 2002
+   Revised: July 25, 2002 - matches revisions to cpu.c
+   Revised: Dec  31, 2007 - matches revisions to cpu.c, improve display style
+   Revised: Aug  22, 2008 - use stdint.h, (WORD)casting
+
+   Language: C (UNIX) with -lcurses option
+   Purpose: Hawk Emulator, disassembler for HAWK opcodes
+*/
+
+#include <inttypes.h>
+#include <curses.h>
+#include "bus.h"
+#include "showop.h"
+
+/**************************** 
+ * HAWK instruction formats * 
+ ****************************/
+
+#define ILLEGAL  0
+#define LONGMEM  1
+#define SHORTMEM 2
+#define LONGIMM  3
+#define SHORTIMM 4
+#define BRANCH   5
+#define SHIFT    6
+#define THREEREG 7
+#define SHORTCON 8
+#define TWOREG   9
+#define SPECIAL  10
+#define NOREG    11
+
+/* ir fields OP DST S1 S2 | OP DST OP1 SRC | OP DST OP1 X | OP DST CONST */
+#include "irfields.h"
+
+/*****************************
+ * internal support routines * 
+ *****************************/
+
+static char * name;     /* the textual name of the instruction */
+static int form;        /* the instruction format */
+static HALF ir;         /* the memory location */
+
+static void decode( WORD a ) {
+	/* decode the opcode in m[a] and stage results in static variables */
+	name = NULL;     /* instruction has no name by default */
+	form = ILLEGAL;  /* instruction is illegal format by default */
+
+	if (a >= MAXMEM) return; /* above maxmem, all are illegal */
+
+	/* fetch the instruction */
+	if (a & 2) {
+		ir = m[a>>2] >> 16;
+	} else {
+		ir = m[a>>2];
+	}
+
+	/* decode the instruciton, for its name and format */
+	switch (OP) {
+
+	case 0xF: /* memory reference formats */
+
+		switch (OP1) { /* decode secondary opcode field */
+
+		case 0xF: name = "MOVE    "; form = SHORTMEM; break;
+		case 0xE: name = "MOVECC  "; form = SHORTMEM; break;
+		case 0xD: name = "LOADS   "; form = SHORTMEM; break;
+		case 0xC: name = "LOADSCC "; form = SHORTMEM; break;
+		case 0xB: name = "JSRS    "; form = SHORTMEM; break;
+		case 0xA: name = "STORES  "; form = SHORTMEM; break;
+		case 0x9: name = "LOADL   "; form = SHORTMEM; break;
+		case 0x8: name = "STOREC  "; form = SHORTMEM; break;
+		case 0x7: name = "LEA     "; form = LONGMEM; break;
+		case 0x6: name = "LEACC   "; form = LONGMEM; break;
+		case 0x5: name = "LOAD    "; form = LONGMEM; break;
+		case 0x4: name = "LOADCC  "; form = LONGMEM; break;
+		case 0x3: name = "JSR     "; form = LONGMEM; break;
+		case 0x2: name = "STORE   "; form = LONGMEM; break;
+		case 0x1: break;
+		case 0x0: break;
+
+		}
+		break;
+
+	case 0xE: name = "LIL     "; form = LONGIMM; break;
+	case 0xD: name = "LIS     "; form = SHORTIMM; break;
+	case 0xC: name = "ORIS    "; form = SHORTIMM; break;
+	case 0xB: name = "MOVESL  "; form = SHIFT; break;
+	case 0xA: name = "ADDSL   "; form = SHIFT; break;
+	case 0x9: name = "ADDSR   "; form = SHIFT; break;
+	case 0x8: name = "ADDSRU  "; form = SHIFT; break;
+	case 0x7: name = "STUFFB  "; form = THREEREG; break;
+	case 0x6: name = "STUFFH  "; form = THREEREG; break;
+	case 0x5: name = "EXTB    "; form = THREEREG; break;
+	case 0x4: name = "EXTH    "; form = THREEREG; break;
+	case 0x3: name = "ADD     "; form = THREEREG; break;
+	case 0x2: name = "SUB     "; form = THREEREG; break;
+
+	case 0x1: /* Two register format */
+				
+		switch (OP1) { /* decode secondary opcode field */
+
+		case 0xF: name = "TRUNC   "; form = SHORTCON; break;
+		case 0xE: name = "SXT     "; form = SHORTCON; break;
+		case 0xD: name = "BTRUNC  "; form = SHORTCON; break;
+		case 0xC: name = "ADDSI   "; form = SHORTCON; break;
+		case 0xB: name = "AND     "; form = TWOREG; break;
+		case 0xA: name = "OR      "; form = TWOREG; break;
+		case 0x9: name = "EQU     "; form = TWOREG; break;
+		case 0x8: break;
+		case 0x7: name = "ADDC    "; form = TWOREG; break;
+		case 0x6: name = "SUBB    "; form = TWOREG; break;
+		case 0x5: name = "ADJUST  "; form = SPECIAL; break;
+		case 0x4: name = "PLUS    "; form = TWOREG; break;
+		case 0x3: name = "COGET   "; form = SPECIAL; break;
+		case 0x2: name = "COSET   "; form = SPECIAL; break;
+		case 0x1: name = "CPUGET  "; form = SPECIAL; break;
+		case 0x0: name = "CPUSET  "; form = SPECIAL; break;
+		}
+		break;
+
+	case 0x0: /* Bcc */
+
+		switch (DST) { /* decode condition field */
+
+		case 0xF: name = "BGTU    "; form = BRANCH; break;
+		case 0xE: name = "BGT     "; form = BRANCH; break;
+		case 0xD: name = "BGE     "; form = BRANCH; break;
+		case 0xC: name = "BCR     "; form = BRANCH; break;
+		case 0xB: name = "BVR     "; form = BRANCH; break;
+		case 0xA: name = "BNE     "; form = BRANCH; break;
+		case 0x9: name = "BNR     "; form = BRANCH; break;
+		case 0x8: break;
+		case 0x7: name = "BLEU    "; form = BRANCH; break;
+		case 0x6: name = "BLE     "; form = BRANCH; break;
+		case 0x5: name = "BLT     "; form = BRANCH; break;
+		case 0x4: name = "BCS     "; form = BRANCH; break;
+		case 0x3: name = "BVS     "; form = BRANCH; break;
+		case 0x2: name = "BEQ     "; form = BRANCH; break;
+		case 0x1: name = "BNS     "; form = BRANCH; break;
+		case 0x0:
+			if (ir == 0x0000) {
+				name = "NOP     "; form = NOREG; break;
+			}
+			name = "BR      "; form = BRANCH; break;
+
+		}
+		break;
+	}
+}
+
+static void showit(WORD a) {
+	HALF next = 0; /* next word of instruction, if needed */
+
+	/* fetch the next locaton, if needed */
+	if ( ((a + 2) < MAXMEM)
+        &&   ((form == LONGMEM) || (form == LONGIMM)) ) {
+		if (a & 2) { /* ir was in the odd half */
+			next = m[(a + 2) >> 2] & (WORD)0xFFFFUL;
+		} else { /* ir was in the even half */
+			next = (m[a >> 2] >> 16) & (WORD)0xFFFFUL;
+		}
+	}
+
+	/* display it, depending on the format */
+	if (form != ILLEGAL) {
+		addstr(name);
+		switch (form) {
+
+		case LONGMEM:
+			if (X != 0) { /* indexed */
+				printw("R%1X,R%1X,#%04X",
+					DST, X, next);
+			} else { /* pc relative */
+				WORD dst = next;
+				if (next & 0x8000) dst |= (WORD)0xFFFF0000UL;
+				dst += a + 4; 
+				printw("R%1X,#%06"PRIX32, DST, dst);
+			}
+			break;
+		case SHORTMEM:
+			printw("R%1X,R%1X", DST, X);
+			break;
+		case LONGIMM:
+			printw("R%1X,#%06X", DST, (next << 8) | CONST);
+			break;
+		case SHORTIMM:
+			printw("R%1X,#%02X", DST, CONST);
+			break;
+		case BRANCH:
+			{
+				WORD dst = CONST;
+				if (CONST & 128) dst |= (WORD)0xFFFFFF00UL;
+				dst = (dst << 1) + (a + 2);
+				printw("#%06"PRIX32, dst);
+			}
+			break;
+		case SHIFT:
+			printw("R%1X,R%1X,#%1X", DST, S1, S2);
+			break;
+		case THREEREG:
+			printw("R%1X,R%1X,R%1X", DST, S1, S2);
+			break;
+		case SHORTCON:
+			printw("R%1X,#%1X", DST, SRC);
+			break;
+		case TWOREG:
+			printw("R%1X,R%1X", DST, SRC);
+			break;
+		case SPECIAL:
+			printw("R%1X,#%1X", DST, SRC);
+			break;
+		case NOREG:
+			break;
+		}
+	} else { /* illegal */
+		printw("#%04"PRIX32, ir & (WORD)0x0000FFFFUL);
+	}
+}
+
+static int mysize() {
+	/* return instruction size */
+	if ((form == LONGMEM) || (form == LONGIMM)) {
+		return 4;
+	} else {
+		return 2;
+	}
+}
+
+/*******************************
+ * disassemble one instruction * 
+ *******************************/
+
+int showop( WORD a ) {
+	/* decode the opcode in m[a] and output it; returns address increment */
+	decode( a );
+	showit( a );
+	return mysize();
+}
+
+int sizeofop( WORD a ) {
+	/* decode the opcode in m[a] and return address increment */
+	decode( a );
+	return mysize();
+}
+xxxxxxxxxx
