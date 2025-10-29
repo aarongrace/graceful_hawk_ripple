@@ -10,13 +10,6 @@ Graceful Hawk extends the base Hawk emulator into a fully animated, color-themed
 
 Most of the functionalities are implemented in C (`graceful_hawk.c` / `graceful_hawk.h`) but I also modified the display loop in `console.c`.
 
-
----
-
-## Overview
-
-Graceful Hawk provides a runtime theme system and dynamic visual feedback that reflect the activity of the emulator. It initializes color pairs, manages theme palettes, and applies per-frame updates (for banners, numbers, and background gradients) during program execution.
-
 ---
 
 ## Core Features
