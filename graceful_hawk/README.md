@@ -3,13 +3,6 @@
 Graceful Hawk extends the base Hawk emulator by Dr. Douglas Jones into a fully animated, color-themed, and dynamically reactive terminal environment. It replaces the static monochrome interface with a modular theming engine, animated banners, and real-time color modulation synchronized with the emulator's internal state.
 
 Most of the functionalities are implemented in C (`graceful_hawk.c` / `graceful_hawk.h`) but I also modified the display loop in `console.c`.
-
----
-
-## Overview
-
-Graceful Hawk provides a runtime theme system and dynamic visual feedback that reflect the activity of the emulator. It initializes color pairs, manages theme palettes, and applies per-frame updates (for banners, numbers, and background gradients) during program execution.
-
 ---
 
 ## Core Features
