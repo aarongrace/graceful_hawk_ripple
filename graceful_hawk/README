@@ -1,3 +1,71 @@
+# Graceful Hawk
+
+Graceful Hawk extends the base Hawk emulator by Dr. Douglas Jones into a fully animated, color-themed, and dynamically reactive terminal environment. It replaces the static monochrome interface with a modular theming engine, animated banners, and real-time color modulation synchronized with the emulator's internal state.
+
+Most of the functionalities are implemented in C (`graceful_hawk.c` / `graceful_hawk.h`) but I also modified the display loop in `console.c`.
+
+---
+
+## Overview
+
+Graceful Hawk provides a runtime theme system and dynamic visual feedback that reflect the activity of the emulator. It initializes color pairs, manages theme palettes, and applies per-frame updates (for banners, numbers, and background gradients) during program execution.
+
+---
+
+## Core Features
+
+### 1. Runtime Theme Management
+
+Maintains a global theme struct that defines RGB color sets for interface components (title, registers, memory, menu, CPU line, etc.).
+
+**Supports multiple themes:**
+
+- **t_default** – balanced blue/purple base
+- **t_desert** – golden, warm palette
+- **t_ocean** – cool blue-green palette
+- **t_meadows** – fresh green-turquoise palette
+- **t_crimson** – deep red-violet palette
+
+**Each theme defines:**
+
+- Fixed colors for interface elements
+- Gradients for "colorful number" visualization (`n_mod0` … `n_mod3`)
+
+**Major functions:**
+
+- `init_themes_and_color_pairs()` – initializes all color pairs and sets the default theme
+- `change_theme(int theme)` – switches between themes (cyclic or explicit)
+- `start_theme(int t)` – applies the RGB definitions to curses color pairs
+
+### 2. Animated Banners
+
+Graceful Hawk includes an animated banner system rendered across the terminal header. Each banner can cycle colors and characters to simulate flowing gradients or alternating symbols.
+
+**Banner modes:**
+
+- **bs_disco** – shifting, saturated colors with flashing `$` / `\` characters
+- **bs_gradient** – smooth color blending across tints and hues (`~` / `\`)
+- **bs_alternating** – structured two-tone pulses using vertical bars (`|` `-` `-`)
+
+**Major functions:**
+
+- `set_banner_style(int incre)` – changes the current banner mode and re-initializes its colors
+- `set_banner_colors()` – animates the banner by rotating its color indices each frame
+
+### 3. Colorful Number Rendering
+
+Registers, memory cells, and monitor digits can be displayed as color-coded hexadecimal values using gradient palettes that emphasize visual contrast.
+
+Each 4-bit nibble (0–F) is mapped to a dynamic color pair, interpolated through the current theme's modulation vectors.
+
+### 4. Dynamic Modulation
+
+Each theme includes RGB modulation factors (`mr`, `mg`, `mb`) that control how other visual systems (e.g., ripple rendering) inherit the active color profile. The color modulation affects banner gradients, numeric visualization, and cross-fade animations.
+
+
+############################################################################################################################
+Please see the original README of the Hawk emulator by Dr. Douglas Jones below. 
+
 # Hawk
 
 The Hawk emulator is an emulator for a 32-bit RISC machine written in C
