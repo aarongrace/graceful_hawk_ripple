@@ -56,7 +56,8 @@ Each 4-bit nibble (0–F) is mapped to a dynamic color pair, interpolated throug
 Each theme includes RGB modulation factors (`mr`, `mg`, `mb`) that control how other visual systems (e.g., ripple rendering) inherit the active color profile. The color modulation affects banner gradients, numeric visualization, and cross-fade animations.
 
 
-############################################################################################################################
+------
+
 Please see the original README of the Hawk emulator by Dr. Douglas Jones below. 
 
 # Hawk
