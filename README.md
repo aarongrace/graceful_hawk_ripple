@@ -77,24 +77,10 @@ Each theme includes RGB modulation factors (`mr`, `mg`, `mb`) that control how o
 
 ---
 
-# Ripple: Procedural Animation and Canvas Simulation
+# Ripple
 
-**Ripple** is a simulation written in the SMAL32 assembly language. It generates, evolves, and visualizes concentric wave patterns—"ripples"—across three synchronized display regions: the register panel, memory window, and monitor grid.
+**Ripple** is a simulation written in the SMAL32 assembly language. It generates, evolves, and visualizes concentric wave patterns across three synchronized display regions: the register panel, memory window, and monitor grid.
 
----
-
-## Overview
-
-The Ripple Engine treats the emulator display as a two-dimensional canvas composed of integer "pixels," each representing an intensity value stored in memory.
-
-**Every simulation cycle:**
-
-- New ripples are probabilistically generated
-- Existing ripples expand outward as circles
-- All canvas values decay slightly, producing smooth fading
-- The display layer reconstructs this state into text and color output
-
-The effect is a living field of waves flowing through the emulator's internal structure—visualizing computation as interference patterns.
 
 ---
 
