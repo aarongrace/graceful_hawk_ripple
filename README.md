@@ -3,7 +3,8 @@ This repository contains the **Graceful Hawk** emulator and **Ripple**.
 
 **Graceful Hawk** is an extension of the Hawk emulator of the SMAL assembly language created by Dr. Douglas Jones of the University of Iowa.
 
-**Ripple** generates and visualizes concentric wave patterns across a unified graphics display across the register panel, memory window, and monitor grid. It works even without the extended Hawk emulator, but it looks much better on Graceful Hawk because each hex number is given a distinct color, giving the impression of undulation. 
+**Ripple** generates and visualizes concentric wave patterns across a unified graphics display that spans the register panel, memory window, and monitor grid. Each wave is stored and rendered so that a hexadecimal digit encodes its height level. Pixels sharing the same hex value belong to the same wavefront. When two waves intersect, the crossing plane rises to a linear combination slightly below their total sum.
+**Ripple** still works on the originalHawk emulator, but it looks much better on Graceful Hawk because each hex number is given a distinct color, giving the impression of undulation and depth. 
 
 ![demo.gif](demo/demo.gif)
 
