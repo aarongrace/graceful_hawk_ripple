@@ -6,6 +6,17 @@ This repository contains the **Graceful Hawk** emulator and **Ripple**.
 **Ripple** generates and visualizes concentric wave patterns across a unified graphics display across the register panel, memory window, and monitor grid. It works even without the extended Hawk emulator, but it looks much better on Graceful Hawk because each hex number is given a distinct color, giving the impression of undulation. 
 
 
+# How to Run
+
+```bash
+cd graceful_Hawk
+bash mnt/
+```
+
+
+
+
+
 # Graceful Hawk
 
 Graceful Hawk extends the base Hawk emulator into a fully animated, color-themed, and dynamically reactive terminal environment. It replaces the static monochrome interface with a modular theming engine, animated banners, and real-time color modulation synchronized with the emulator's internal state.
@@ -112,7 +123,12 @@ Each iteration performs a full frame update:
 - Randomly change visual display mode or banner
 - Project the updated canvas to the visible interface
 
-This forms the real-time heartbeat of the Ripple Engine.
+Each iteration corresponds to a frame.
+
+```assembly
+	TOSUBR	ENTRY_FROM_MAIN
+```
+Note that this line positions the memory pointer at the point where the memory display starts. 
 
 ### 2. Ripple Object System
 
@@ -133,9 +149,9 @@ Defines the core data structure and behavior of each wave.
 
 - `RIPPLE_CONSTRUCTOR()` – allocates and initializes a new ripple with randomized attributes
 - `ADD_RIPPLE()` – probabilistically spawns a new ripple (3/8 chance per frame) and stores it in `RIPPLE_ARRAY`
-- `DRAW_RIPPLE()` – expands and draws one ripple on the canvas, increasing radius and decreasing life each cycle
+- `DRAW_RIPPLE()` – expands and draws one ripple on the canvas, increasing radius and decreasing life each cycle; dead ripples are freed once their life counter reaches zero
 
-Dead ripples are automatically freed by the object manager once their life counter reaches zero.
+
 
 ### 3. Object Management Layer
 
@@ -149,13 +165,11 @@ Maintains the lifecycle of all active ripple objects.
   - If a ripple is alive → it is drawn
   - If a ripple has expired → its memory is freed and slot cleared
 
-This module functions like a miniature entity system, keeping the simulation's object pool compact and dynamic.
 
 ### 4. Geometric Rendering
 
 **File:** `generate_circle.a`
-
-Implements the low-level geometry engine responsible for drawing a circular ring from discrete coordinates.
+Generates the coordinates and then modifies the relevant words in the canvas. 
 
 **Major functions:**
 
@@ -163,13 +177,12 @@ Implements the low-level geometry engine responsible for drawing a circular ring
 - `GENERATE_CIRCLE()` – filters duplicate coordinates from the above routine
 - `DRAW_CIRCLE()` – converts each coordinate pair into a character (e.g., `#`, `~`) and sends it to the canvas via `DRAW_ON_CANVAS()`
 
-This system effectively rasterizes parametric geometry (a circle) into the emulator's word-based framebuffer.
 
 ### 5. Canvas Engine
 
 **File:** `canvas.a`
 
-Defines the in-memory two-dimensional framebuffer shared by all modules.
+Defines the in-memory two-dimensional word-based canvas buffer. Having the canvas means that any function can directly draw on it with a function call, whose details are abstracted by the DRAW_ON_CANVAS() method
 
 **Major functions:**
 
@@ -181,22 +194,21 @@ Defines the in-memory two-dimensional framebuffer shared by all modules.
 - `SET_DIG_IN_WORD()` – handles sub-word pixel placement inside 4-bit "digit slots"
 - `LOWER_CANVAS_VALUES()` – decays every value by halving it, creating fade-out trails
 
-The canvas acts as both the logical state and visual texture of the simulation.
-
 ### 6. Display Reconstruction
 
 **File:** `display.a`
 
-Handles translation from the internal canvas to visible emulator output.
+Handles translation from the internal canvas to the unified emulator output.
 
 **Major functions:**
 
-- `RECREATE_MONITOR()` – prints the lower display (ripple grid) by reading canvas data and outputting hex-ascii values
-- `RECREATE_MEMORY()` – projects the right-side "memory" columns
-- `RECREATE_REGISTERS()` – writes upper-left "registers" from the framebuffer
-- `DISPLAY_CANVAS()` – orchestrates all three, forming the complete visual frame
+- `RECREATE_MONITOR()` – prints the lower display (ripple grid) using canvas
+- `RECREATE_MEMORY()` – writes relevant section from canvas into the right-side "memory" columns
+- `RECREATE_REGISTERS()` – writes into upper-left "registers"
+  
+- `DISPLAY_CANVAS()` – runs the three above
 
-Together, these reconstruct the Hawk's text-mode display as a coherent image—the visible ripple field.
+Together, these reset the displays and 
 
 ---
 
@@ -208,16 +220,3 @@ Together, these reconstruct the Hawk's text-mode display as a coherent image—t
 | 2 | `ADD_RIPPLE` | Possibly spawn new ripple |
 | 3 | `DRAW_OBJECTS` | Draw all active ripples |
 | 4 | `DISPLAY_CANVAS` | Redraw monitor, memory, and registers |
-
-Each frame merges physics, rendering, and interface into one coherent cycle.
-
----
-
-## Summary
-
-The Ripple Engine transforms the Hawk computer into a procedural visualization machine:
-
-- Data becomes texture
-- Registers and memory become reactive surfaces
-- Program flow manifests as movement and fading interference
-- Each frame is not only computed—it is drawn by the computation itself
