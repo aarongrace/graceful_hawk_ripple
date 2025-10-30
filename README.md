@@ -5,17 +5,36 @@ This repository contains the **Graceful Hawk** emulator and **Ripple**.
 
 **Ripple** generates and visualizes concentric wave patterns across a unified graphics display across the register panel, memory window, and monitor grid. It works even without the extended Hawk emulator, but it looks much better on Graceful Hawk because each hex number is given a distinct color, giving the impression of undulation. 
 
+![Demo](demo/demo.gif)
 
 # How to Run
+Clone the repo on a Linux distribution
 
 ```bash
 cd graceful_Hawk
 bash mnt
 ```
 ```mnt``` is a bash script that runs **Ripple** in the **Graceful Hawk** emulator
+![init](demo/init.png)
+
+Press `r` to run the program until the first break point ``JSRS   R1, R1`` 
+
+![run_once](demo/run_once.png)
+
+Note that our program counter is now the data portion of the memory, which would be catastrophic under normal circumstances! However, the ``JSRS   R1,R1`` instruction that the PC points to was in fact dynamically stored here as its hex representation (afterall, data and instruction are both hexadecimal words at this level). This instruction is needed to get back into the execution loop, but why did we come here? 
+
+Well, the point is to use the hex words in memory as a way to display our ripples, and we must first suspend the memory display at this "anchor point". Simply press `t` to toggle the hex mode for memory
+
+![toggle](demo/toggle.png)
+
+Since the memory display of the emulator does not follow the program counter in hex mode, the display is now anchored to our "canvas" in the memory, on which we can draw our ripples!
+
+Simply press `w` to start the animation!
+
+(Note that ```B1F1``` or equivalently ``JSRS   R1,R1`` must never be overwritten so that the program can continue the loop)
 
 
-
+---
 
 # Graceful Hawk
 
@@ -23,7 +42,6 @@ bash mnt
 
 Most of the functionalities are implemented in C (`graceful_hawk.c` / `graceful_hawk.h`) but I also modified the display loop in `console.c`.
 
----
 
 ## Core Features
 
