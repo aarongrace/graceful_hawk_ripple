@@ -11,7 +11,7 @@ This repository contains the **Graceful Hawk** emulator and **Ripple**.
 Clone the repo on a Linux distribution
 
 ```bash
-cd graceful_Hawk
+cd graceful_hawk
 bash mnt
 ```
 ```mnt``` is a bash script that runs **Ripple** in the **Graceful Hawk** emulator
@@ -21,7 +21,7 @@ Press `r` to run the program until the first break point ``JSRS   R1, R1``
 
 ![run_once](demo/run_once.png)
 
-Note that our program counter is now the data portion of the memory, which would be catastrophic under normal circumstances! However, the ``JSRS   R1,R1`` instruction that the PC points to was in fact dynamically stored here as its hex representation (afterall, data and instruction are both hexadecimal words at this level). This instruction is needed to get back into the execution loop, but why did we come here? 
+Note that our program counter is now the data portion of the memory, which would be catastrophic under normal circumstances! However, the ``JSRS   R1,R1`` instruction that the PC points to was in fact dynamically stored here as its hex representation (afterall, data and instruction are both hexadecimal words at this level). This instruction is needed to get back into the main loop, but why did we come here? 
 
 Well, the point is to use the hex words in memory as a way to display our ripples, and we must first suspend the memory display at this "anchor point". Simply press `t` to toggle the hex mode for memory
 
