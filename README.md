@@ -5,7 +5,7 @@ This repository contains the **Graceful Hawk** emulator and **Ripple**.
 
 **Ripple** generates and visualizes concentric wave patterns across a unified graphics display across the register panel, memory window, and monitor grid. It works even without the extended Hawk emulator, but it looks much better on Graceful Hawk because each hex number is given a distinct color, giving the impression of undulation. 
 
-![Demo](demo/demo.gif)
+![demo.gif](demo/demo.gif)
 
 # How to Run
 Clone the repo on a Linux distribution
